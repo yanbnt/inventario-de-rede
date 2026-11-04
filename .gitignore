@@ -1,0 +1,24 @@
+# --- Dados de rede (NUNCA versionar: IPs, MACs, nomes de máquinas, inventário) ---
+dados/*
+!dados/.gitkeep
+mapa-da-rede*.html
+ultimo-relatorio.html
+*.log
+
+# --- Gerados pelo build (o instalador vai como Release no GitHub) ---
+instalador/build/
+instalador/dist/
+instalador/saida/
+instalador/redist/
+Instalador-InventarioRede-*.exe
+*.spec.bak
+
+# --- Python / editores ---
+__pycache__/
+*.pyc
+.venv/
+.vscode/
+.idea/
+.claude/
+Thumbs.db
+desktop.ini

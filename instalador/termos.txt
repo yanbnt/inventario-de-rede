@@ -1,0 +1,29 @@
+﻿INVENTÁRIO DE REDE — MAKE DISTRIBUIDORA
+Versão 1.0.0
+
+O que este programa faz
+-----------------------
+• Descobre os dispositivos conectados à rede local deste computador (ping, tabela ARP e portas comuns).
+• Identifica o fabricante de cada dispositivo pelo endereço MAC (base pública do IEEE, já incluída).
+• Testa as portas TCP escolhidas e identifica os serviços (páginas web, câmeras, impressoras, acesso remoto…).
+• Mostra tudo em um painel, um mapa desenhado da rede e uma lista com links para cada serviço.
+• Guarda o inventário (nomes, categorias e notas que você definir) somente neste computador.
+
+Uso responsável
+---------------
+Use este programa apenas em redes que você administra ou tem autorização para inventariar.
+Varreduras de portas podem ser registradas por firewalls e sistemas de segurança da rede.
+Avise a equipe responsável pela rede antes de executar uma varredura completa.
+
+Privacidade
+-----------
+• A interface roda somente neste computador (endereço 127.0.0.1) e não fica acessível a outras máquinas.
+• Nenhum dado da rede é enviado para a internet. A única conexão externa opcional é o botão
+  "Atualizar base" de fabricantes, que baixa a lista pública do IEEE (standards-oui.ieee.org).
+• Os dados ficam em: %LOCALAPPDATA%\InventarioRede\dados
+
+Requisitos
+----------
+• Windows 10 ou 11 (64 bits).
+• Microsoft WebView2 (já presente no Windows 11 e na maioria dos Windows 10). Se faltar, o instalador
+  instala automaticamente, sem precisar de internet (o componente completo já vem dentro dele).
