@@ -8,8 +8,8 @@ Baixe na página de [Releases](../../releases/latest) e execute — cada instala
 
 | Versão | Tamanho | Quando usar |
 |---|---|---|
-| **`Instalador-InventarioRede-1.0.0-offline.exe`** | ≈218 MB | Instala **sem internet** — traz o Microsoft WebView2 completo |
-| **`Instalador-InventarioRede-1.0.0-online.exe`** | ≈14 MB | Download leve — se a máquina não tiver WebView2, baixa da Microsoft |
+| **`Instalador-InventarioRede-1.1.0-offline.exe`** | ≈218 MB | Instala **sem internet** — traz o Microsoft WebView2 completo |
+| **`Instalador-InventarioRede-1.1.0-online.exe`** | ≈14 MB | Download leve — se a máquina não tiver WebView2, baixa da Microsoft |
 
 Na dúvida, use a **offline**. No Windows 11 e na maioria dos Windows 10 o WebView2 já existe, e as duas funcionam igual.
 Ele já inclui Python, bibliotecas, interface e a base de fabricantes. Requisitos: Windows 10/11 64 bits.
@@ -17,7 +17,7 @@ O instalador detecta o WebView2 pelo registro e pelos arquivos no disco, e só i
 
 - Instala em `C:\Program Files\Inventario de Rede` (ou só para o usuário, se escolher no início).
 - Dados (inventário, histórico, varreduras): `%LOCALAPPDATA%\InventarioRede\dados` — faça cópia dessa pasta para guardar.
-- Instalação silenciosa (TI): `Instalador-InventarioRede-1.0.0-offline.exe /VERYSILENT /SUPPRESSMSGBOXES`
+- Instalação silenciosa (TI): `Instalador-InventarioRede-1.1.0-offline.exe /VERYSILENT /SUPPRESSMSGBOXES`
 - Feche o Inventário de Rede antes de reinstalar/atualizar (o instalador avisa se ele estiver aberto).
 
 ## Estrutura do projeto
@@ -26,7 +26,7 @@ O instalador detecta o WebView2 pelo registro e pelos arquivos no disco, e só i
 |---|---|
 | `app.py` | Programa principal: servidor local (127.0.0.1) + janela nativa (pywebview/WebView2) |
 | `app.html` | Interface (Material Design, cores Make): painel, mapa, dispositivos, serviços, varredura |
-| `varredura.py` | Scanner: descoberta (ping/ARP), portas TCP, identificação de serviços, nomes |
+| `varredura.py` | Scanner: descoberta (ping/ARP e consulta de APs Intelbras), portas TCP, identificação de serviços, nomes |
 | `identificar.py` | Fabricante pelo MAC, categorias por evidências, inventário persistente, exportação |
 | `dados\` | Dados locais de desenvolvimento (não versionados) e `oui.csv` (baixado pelo build) |
 | `instalador\` | Build: `build.ps1`, `InventarioRede.spec` (PyInstaller), `InventarioRede.iss` (Inno Setup), imagens |

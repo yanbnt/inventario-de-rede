@@ -1,10 +1,11 @@
 ﻿INVENTÁRIO DE REDE — MAKE DISTRIBUIDORA
-Versão 1.0.0
+Versão 1.1.0
 
 O que este programa faz
 -----------------------
 • Descobre os dispositivos conectados à rede local deste computador (ping, tabela ARP e portas comuns).
 • Identifica o fabricante de cada dispositivo pelo endereço MAC (base pública do IEEE, já incluída).
+• Pergunta aos access points e rádios Intelbras modelo e firmware (mesma consulta do Reset Tool, só leitura).
 • Testa as portas TCP escolhidas e identifica os serviços (páginas web, câmeras, impressoras, acesso remoto…).
 • Mostra tudo em um painel, um mapa desenhado da rede e uma lista com links para cada serviço.
 • Guarda o inventário (nomes, categorias e notas que você definir) somente neste computador.

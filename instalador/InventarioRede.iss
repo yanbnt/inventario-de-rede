@@ -12,7 +12,7 @@
 #endif
 
 #define AppName      "Inventário de Rede"
-#define AppVersion   "1.0.0"
+#define AppVersion   "1.1.0"
 #define AppPublisher "Make Distribuidora"
 #define AppURL       "https://makedistribuidora.com.br"
 #define AppExe       "InventarioRede.exe"

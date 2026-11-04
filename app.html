@@ -417,7 +417,7 @@ function indexData() {
   if (!D) return;
   for (const d of D.dispositivos) {
     d._svcIdx = d.svcs.map(s => [s.port, s.nome, s.tipo, s.det].join(' ')).join(' ');
-    d._h = [d.ip, d.mac, d.nome, d.nome_rede, d.modelo, d.fabricante_full, catById(d.cat).nome, d.notas, d.tag, d.novo ? 'novo' : '', d.online ? 'online' : 'offline', d._svcIdx].join(' ').toLowerCase();
+    d._h = [d.ip, d.mac, d.nome, d.nome_rede, d.modelo, d.firmware, d.fabricante_full, catById(d.cat).nome, d.notas, d.tag, d.novo ? 'novo' : '', d.online ? 'online' : 'offline', d._svcIdx].join(' ').toLowerCase();
   }
   const byKey = Object.fromEntries(D.dispositivos.map(d => [d.chave, d]));
   for (const s of D.servicos) {
@@ -651,7 +651,8 @@ function drawMap(devs) {
   groups.forEach(g => {
     const rings = []; let left = g.items.length, k = 1;
     while (left > 0) { const r = 34 + k * 52; const cap = Math.max(6, Math.floor(2 * Math.PI * r / SP)); const n = Math.min(cap, left); rings.push({ r, n }); left -= n; k++; }
-    g.rings = rings; g.rc = rings[rings.length - 1].r + 40;
+    // rl = anel externo; o rótulo do dispositivo de baixo vai até rl+38, então o título do grupo fica abaixo disso
+    g.rings = rings; g.rl = rings[rings.length - 1].r; g.rc = g.rl + 84;
   });
   // cada grupo recebe uma fatia angular (grupos pequenos ganham fatia proporcionalmente maior)
   // e fica à menor distância do gateway que cabe dentro da própria fatia
@@ -685,8 +686,8 @@ function drawMap(devs) {
     hubs += `<g class="hub" transform="translate(${hx.toFixed(1)},${hy.toFixed(1)})">
       <rect x="-22" y="-22" width="44" height="44" rx="14" style="fill:${col}"/>
       <text class="msi-t" font-size="26" style="fill:var(--surface-container-lowest)">${g.c.icone}</text>
-      <text class="hub-lbl" y="${g.rc - 6}">${esc(g.c.nome)}</text>
-      <text class="hub-cnt" y="${g.rc + 10}">${g.items.length} dispositivo(s)</text></g>`;
+      <text class="hub-lbl" y="${g.rl + 60}">${esc(g.c.nome)}</text>
+      <text class="hub-cnt" y="${g.rl + 76}">${g.items.length} dispositivo(s)</text></g>`;
   });
   // internet + gateway
   const gwHit = gw ? isHit(gw) : true;
@@ -832,7 +833,7 @@ function renderVarredura() {
     if (f.preset === 'rapida') f.portas = '1-1024,1433,1521,1723,1883,2049,3000,3306,3389,5000,5060,5432,5900,5985,6379,7070,8000-8100,8291,8443,8554,8728,8888,9000,9100,27017,34567,37777,49152';
     render();
   });
-  $('#f-rede').oninput = e => f.rede = e.target.value.trim();
+  $('#f-rede').oninput = e => { f.rede = e.target.value.trim(); netHint(); };
   $('#f-portas').oninput = e => f.portas = e.target.value.trim();
   $('#f-conc').oninput = e => { f.conc = +e.target.value; $('#v-conc').textContent = f.conc; };
   $('#f-to').oninput = e => { f.timeout = +e.target.value; $('#v-to').textContent = f.timeout + 's'; };
@@ -853,9 +854,22 @@ async function loadNets() {
 }
 function fillNets(nets) {
   const dl = $('#redes'); if (!dl) return;
-  dl.innerHTML = nets.map(n => `<option value="${esc(n.rede)}">${esc(n.interface)} — ${esc(n.ip)}</option>`).join('');
+  const rot = n => `${n.interface || 'adaptador'}${n.virtual ? ' · virtual' : ''}${n.gateway ? ' · gateway ' + n.gateway : ''}`;
+  dl.innerHTML = nets.map(n => `<option value="${esc(n.rede)}">${esc(rot(n))} — ${esc(n.ip)}</option>`).join('');
   if (!st.scanForm.rede && nets[0]) { st.scanForm.rede = nets[0].rede; $('#f-rede').value = nets[0].rede; }
-  $('#redes-hint').textContent = nets.length ? 'Redes deste computador: ' + nets.map(n => `${n.rede} (${n.interface})`).join(', ') : '';
+  netHint();
+}
+// avisa quando a rede escolhida é de um adaptador virtual (Hyper-V, WSL, VirtualBox, VPN…)
+function netHint() {
+  const h = $('#redes-hint'), nets = loadNets.cache || []; if (!h) return;
+  const sel = nets.find(n => n.rede === st.scanForm.rede);
+  const outras = nets.length > 1 ? ' · Outras redes deste computador: ' + nets.filter(n => n !== sel).map(n => `${n.rede} (${n.interface}${n.virtual ? ', virtual' : ''})`).join(', ') : '';
+  if (sel && sel.virtual) {
+    const real = nets.find(n => !n.virtual);
+    h.innerHTML = `<b style="color:var(--error)">Atenção: ${esc(sel.interface)} é um adaptador virtual (Hyper-V, WSL, VM ou VPN) e não a rede da empresa.</b> ` +
+      (real ? `Use ${esc(real.rede)} (${esc(real.interface)}).` : 'Confira se o computador está conectado à rede por cabo ou Wi-Fi.');
+  } else if (sel) h.textContent = `${sel.interface}${sel.gateway ? ' · gateway ' + sel.gateway : ''}` + outras;
+  else h.textContent = nets.length ? 'Redes deste computador: ' + nets.map(n => `${n.rede} (${n.interface}${n.virtual ? ', virtual' : ''})`).join(', ') : '';
 }
 async function startScan() {
   const f = st.scanForm;
@@ -914,6 +928,7 @@ function openSheet(k) {
         <dt>MAC</dt><dd><span class="mono">${esc(d.mac || '—')}</span>${d.mac ? ` <button class="icon-btn sm" data-copy="${esc(d.mac)}" title="Copiar MAC" style="vertical-align:middle">${ic('content_copy')}</button>` : ''}${d.mac_privado ? ' <span class="badge-s warn">privado/aleatório</span>' : ''}</dd>
         <dt>Fabricante</dt><dd>${esc(d.fabricante_full || (d.mac_privado ? 'Oculto (MAC privado — comum em celulares e notebooks)' : 'Não encontrado na base'))}</dd>
         ${d.modelo ? `<dt>Modelo</dt><dd>${esc(d.modelo)}</dd>` : ''}
+        ${d.firmware ? `<dt>Firmware</dt><dd>${esc(d.firmware)}</dd>` : ''}
         <dt>Nome na rede</dt><dd>${esc(d.nome_rede || '—')}</dd>
         <dt>Responde ping</dt><dd>${d.ping ? 'sim' : 'não'}</dd>
       </dl>

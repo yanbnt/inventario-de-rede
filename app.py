@@ -8,6 +8,7 @@ Programa desktop: um servidor local (somente 127.0.0.1) + janela nativa (WebView
     python app.py --porta 8770 --sem-navegador   só o servidor (desenvolvimento)
 """
 import argparse
+import re
 import ctypes
 import sys
 import tempfile
@@ -52,7 +53,8 @@ def partial_result():
     for h in st.get("hosts", []):
         hosts.append({"ip": h, "mac": st.get("macs", {}).get(h), "hostname": None, "netbios": None,
                       "ping": h in st.get("pinged", []),
-                      "servicos": [{"port": p, "pend": True} for p in sorted(st.get("abertas", {}).get(h, []))]})
+                      "servicos": [{"port": p, "pend": True} for p in sorted(st.get("abertas", {}).get(h, []))],
+                      **({"descoberta": st["descoberta"][h]} if h in st.get("descoberta", {}) else {})})
     return {"rede": st.get("rede", ""), "inicio": st.get("inicio"), "fim": None,
             "portas_varridas": st.get("portas", ""), "hosts": hosts}
 
@@ -67,25 +69,46 @@ def payload():
     return I.build_payload(d, inv)
 
 
+# adaptadores que não são a rede física da empresa (Hyper-V, WSL, Docker, VMs, VPNs…)
+VIRTUAL_RE = re.compile(r"vEthernet|WSL|Hyper-V|Default Switch|VirtualBox|VMware|Docker|Loopback|TAP-|TAP |"
+                        r"Wintun|WireGuard|OpenVPN|Fortinet|ZeroTier|Tailscale|Hamachi|Radmin|NordLynx|"
+                        r"Bluetooth|Npcap|Virtual", re.I)
+
+
 def local_networks():
+    """Redes IPv4 deste computador, a mais provável (rede física com gateway) primeiro."""
     nets = []
+    rota_ip, _ = I.local_info()   # IP usado pela rota padrão (não envia pacotes)
     try:
-        out = subprocess.run(["powershell", "-NoProfile", "-Command",
-                              "Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -notlike '127.*' "
-                              "-and $_.IPAddress -notlike '169.254.*'} | Select-Object IPAddress,PrefixLength,InterfaceAlias "
-                              "| ConvertTo-Json"], capture_output=True, timeout=20, creationflags=I.NOWIN).stdout.decode("utf-8", "replace")
+        ps = ("$r = foreach ($c in Get-NetIPConfiguration) { foreach ($a in @($c.IPv4Address)) { if ($a) { "
+              "[pscustomobject]@{ IPAddress=$a.IPAddress; PrefixLength=[int]$a.PrefixLength; "
+              "InterfaceAlias=$c.InterfaceAlias; Descricao=$c.InterfaceDescription; "
+              "Gateway=(@($c.IPv4DefaultGateway) | Select-Object -First 1).NextHop; "
+              "Metrica=[int](@($c.NetIPv4Interface) | Select-Object -First 1).InterfaceMetric } } } }; "
+              "ConvertTo-Json -InputObject @($r)")
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, timeout=25,
+                             creationflags=I.NOWIN).stdout.decode("utf-8", "replace")
         data = json.loads(out or "[]")
         for x in data if isinstance(data, list) else [data]:
-            net = ipaddress.ip_network(f"{x['IPAddress']}/{x['PrefixLength']}", strict=False)
+            ip = x.get("IPAddress") or ""
+            if not ip or ip.startswith(("127.", "169.254.")):
+                continue
+            net = ipaddress.ip_network(f"{ip}/{x.get('PrefixLength') or 24}", strict=False)
             if net.prefixlen < 16:
-                net = ipaddress.ip_network(f"{x['IPAddress']}/24", strict=False)
-            nets.append({"rede": str(net), "ip": x["IPAddress"], "interface": x["InterfaceAlias"]})
+                net = ipaddress.ip_network(f"{ip}/24", strict=False)
+            nome = f"{x.get('InterfaceAlias') or ''} {x.get('Descricao') or ''}"
+            nets.append({"rede": str(net), "ip": ip, "interface": x.get("InterfaceAlias") or "",
+                         "gateway": x.get("Gateway") or "", "virtual": bool(VIRTUAL_RE.search(nome)),
+                         "padrao": ip == rota_ip, "_metrica": x.get("Metrica") or 9999})
     except Exception:
         pass
-    if not nets:
-        ip, _ = I.local_info()
-        if ip:
-            nets.append({"rede": str(ipaddress.ip_network(f"{ip}/24", strict=False)), "ip": ip, "interface": ""})
+    if not nets and rota_ip:
+        nets.append({"rede": str(ipaddress.ip_network(f"{rota_ip}/24", strict=False)), "ip": rota_ip,
+                     "interface": "", "gateway": "", "virtual": False, "padrao": True, "_metrica": 0})
+    # física com gateway > rota padrão > física > métrica do Windows
+    nets.sort(key=lambda n: (n["virtual"], not n["gateway"], not n["padrao"], n["_metrica"]))
+    for n in nets:
+        n.pop("_metrica", None)
     return nets
 
 
@@ -226,7 +249,7 @@ class H(BaseHTTPRequestHandler):
 
 
 # ------------------------------------------------------------------ janela desktop
-VERSAO = "1.0.0"
+VERSAO = "1.1.0"
 TITULO = "Inventário de Rede — Make Distribuidora"
 MODO = "servidor"
 WINDOW = None

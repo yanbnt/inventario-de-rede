@@ -291,6 +291,73 @@ async def probe(ip, port, sem):
 
 
 # ---------------------------------------------------------------- principal
+def local_ip_in(net):
+    """IP deste computador dentro de `net` (o PC pode ter vários adaptadores)."""
+    cands = []
+    try:
+        sk = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); sk.connect(("8.8.8.8", 80))  # não envia pacotes
+        cands.append(sk.getsockname()[0]); sk.close()
+    except Exception:
+        pass
+    try:
+        cands += socket.gethostbyname_ex(socket.gethostname())[2]
+    except Exception:
+        pass
+    for ip in cands:
+        try:
+            if ipaddress.ip_address(ip) in net:
+                return ip
+        except ValueError:
+            pass
+    return cands[0] if cands else None
+
+
+# Descoberta de APs/rádios Intelbras (protocolo do "Reset Tool", herdado da Wilibox/Deliberant):
+# consulta multicast 233.89.188.1:10001 com 4 bytes zerados = "quem é você?". Cada equipamento responde
+# ver(1) cmd(1) mac(6) ip(4) tamanho(4, big-endian) "MODELO.vFIRMWARE". Só consulta — nunca envia reset.
+WILI_GRUPO, WILI_PORTA = "233.89.188.1", 10001
+
+
+def intelbras_discovery(local_ip, net, espera=2.5):
+    achados = {}
+    if not local_ip:
+        return achados
+    try:
+        # sem bind(): o Windows abre a porta só no envio e libera a resposta unicast ao multicast
+        # (regra padrão do firewall, 3 s) — não dispara o aviso "Permitir acesso" do Firewall
+        sk = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sk.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(local_ip))
+        sk.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+        sk.settimeout(0.25)
+    except OSError:
+        return achados
+    with sk:
+        fim = time.time() + espera
+        for _ in range(2):  # repete uma vez: UDP pode perder pacote
+            try:
+                sk.sendto(bytes(4), (WILI_GRUPO, WILI_PORTA))
+            except OSError:
+                return achados
+        while time.time() < fim:
+            try:
+                d, (ip, _) = sk.recvfrom(1500)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            try:
+                if len(d) < 16 or d[1] != 0 or ipaddress.ip_address(ip) not in net:
+                    continue
+                n = int.from_bytes(d[12:16], "big")
+                txt = d[16:16 + max(0, min(n, 200))].decode("utf-8", "replace").strip("\x00 ")
+            except ValueError:
+                continue
+            modelo, _, fw = txt.rpartition(".v") if ".v" in txt else (txt, "", "")
+            achados[ip] = {"protocolo": "intelbras", "mac": ":".join(f"{b:02X}" for b in d[2:8]),
+                           "modelo": modelo.strip(), "firmware": fw.strip()}
+    return achados
+
+
 async def main(a):
     net = ipaddress.ip_network(a.rede, strict=False)
     all_ips = [str(h) for h in net.hosts()]
@@ -311,7 +378,13 @@ async def main(a):
         ok = await ping(ip, sem)
         STATE["feito"] += 1
         return ok
+    my_ip = local_ip_in(net)
+    desc_task = asyncio.ensure_future(asyncio.to_thread(intelbras_discovery, my_ip, net))
     pings = await asyncio.gather(*(ping_c(ip) for ip in all_ips))
+    descoberta = await desc_task
+    STATE["descoberta"] = descoberta
+    if descoberta:
+        log(f"APs/rádios Intelbras que se identificaram: {len(descoberta)}")
     pinged = {ip for ip, ok in zip(all_ips, pings) if ok}
     STATE["pinged"] = sorted(pinged)
     log(f"Responderam ao ping: {len(pinged)}")
@@ -325,15 +398,11 @@ async def main(a):
     tcp_hits = [x for x in await asyncio.gather(*(disc(ip, p) for ip in all_ips for p in DISCOVERY_PORTS)) if x]
     tcp_alive = {ip for ip, _ in tcp_hits}
     macs = read_arp(net)
-    hosts = sorted(pinged | tcp_alive | set(macs), key=lambda s: ipaddress.ip_address(s))
+    for ip, info in descoberta.items():
+        macs.setdefault(ip, info["mac"])
+    hosts = sorted(pinged | tcp_alive | set(macs) | set(descoberta), key=lambda s: ipaddress.ip_address(s))
     if a.hosts:
         hosts = [h for h in hosts if h in a.hosts.split(",")] or a.hosts.split(",")
-    my_ip = None
-    try:
-        sk = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); sk.connect(("8.8.8.8", 80))
-        my_ip = sk.getsockname()[0]; sk.close()
-    except Exception:
-        pass
     if my_ip in hosts and my_ip not in macs:
         m = own_mac(my_ip)
         if m:
@@ -438,6 +507,7 @@ async def main(a):
         "hosts": [{
             "ip": h, "mac": macs.get(h), "hostname": n if n and n != h else None,
             "netbios": b, "ping": h in pinged, "servicos": by_host[h],
+            **({"descoberta": descoberta[h]} if h in descoberta else {}),
         } for h, n, b in zip(hosts, names, nb)],
     }
     with open(a.saida, "w", encoding="utf-8") as f:

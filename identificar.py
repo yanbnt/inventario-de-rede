@@ -8,6 +8,7 @@ Identificação de dispositivos e serviços + inventário persistente.
 import csv
 import json
 import os
+import ipaddress
 import re
 import socket
 import subprocess
@@ -39,7 +40,7 @@ NOWIN = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW: não abre cons
 DEV_CATS = {
     "roteador":     ("Rede & Wi-Fi", "router", "rede"),
     "camera":       ("Câmeras & CFTV", "videocam", "cftv"),
-    "acesso":       ("Controle de Acesso", "face", "acesso"),
+    "acesso":       ("Acesso & Alarmes", "face", "acesso"),
     "impressora":   ("Impressoras", "print", "impressao"),
     "servidor":     ("Servidores", "dns", "web"),
     "computador":   ("Computadores", "computer", "web"),
@@ -103,7 +104,7 @@ PORTS = {
     62078: ("iPhone/iPad (sincronização)", "outros", None),
     1716: ("KDE Connect", "outros", None), 2601: ("Quagga (roteamento)", "rede", None),
     5672: ("RabbitMQ (AMQP)", "outros", None), 7678: ("Samsung AllShare (DLNA)", "outros", None),
-    9009: ("Gerência Intelbras", "rede", None), 8686: ("Câmera (gerência)", "cftv", None),
+    9009: ("Central de alarme Intelbras (AMT)", "acesso", None), 8686: ("Câmera (gerência)", "cftv", None),
 }
 HTTP_FALLBACK = {80: "http", 8080: "http", 8000: "http", 8081: "http", 8888: "http", 81: "http",
                  443: "https", 8443: "https", 4443: "https"}
@@ -205,7 +206,9 @@ def vendor(mac):
 
 
 # ------------------------------------------------------------------ rede local
-def local_info():
+def local_info(rede=None):
+    """(IP deste PC, gateway). Com `rede`, escolhe o IP e o gateway que pertencem a ela
+    (o PC pode ter várias rotas padrão: Wi-Fi, cabo, VPN…)."""
     ip = gw = None
     try:
         sk = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -215,9 +218,23 @@ def local_info():
     except Exception:
         pass
     try:
-        out = subprocess.run(["route", "print", "0.0.0.0"], capture_output=True, creationflags=NOWIN).stdout.decode("cp850", "replace")
-        m = re.search(r"^\s*0\.0\.0\.0\s+0\.0\.0\.0\s+(\d+\.\d+\.\d+\.\d+)", out, re.M)
-        gw = m.group(1) if m else None
+        out = subprocess.run(["route", "print", "-4", "0.0.0.0"], capture_output=True, creationflags=NOWIN).stdout.decode("cp850", "replace")
+        rotas = re.findall(r"^\s*0\.0\.0\.0\s+0\.0\.0\.0\s+(\d+\.\d+\.\d+\.\d+)\s+(\d+\.\d+\.\d+\.\d+)\s+(\d+)", out, re.M)
+        rotas.sort(key=lambda r: int(r[2]))           # menor métrica = rota preferida
+        if rotas:
+            gw = rotas[0][0]
+            for g, i, _ in rotas:                     # a rota da interface usada pelo 8.8.8.8
+                if i == ip:
+                    gw = g
+                    break
+        if rede:
+            net = ipaddress.ip_network(rede, strict=False)
+            for g, i, _ in rotas:
+                if ipaddress.ip_address(g) in net:
+                    gw, ip = g, i
+                    break
+            else:
+                gw = None if gw and ipaddress.ip_address(gw) not in net else gw
     except Exception:
         pass
     return ip, gw
@@ -229,6 +246,8 @@ def svc_text(s):
 
 
 def host_model(h):
+    if (h.get("descoberta") or {}).get("modelo"):
+        return h["descoberta"]["modelo"]
     for s in h["servicos"]:
         for k in ("title", "banner", "server"):
             m = MODEL_RE.search(s.get(k) or "")
@@ -249,6 +268,10 @@ def classify_device(h, vend, private, gw):
 
     if h["ip"] == gw:
         add("roteador", 10, "é o gateway padrão da rede")
+    desc = h.get("descoberta") or {}
+    if desc.get("modelo"):
+        fw = f" (firmware {desc['firmware']})" if desc.get("firmware") else ""
+        add("roteador", 10, f"respondeu à descoberta de APs Intelbras como {desc['modelo']}{fw}")
     if vend:
         for rx, cat, w, why in VENDOR_RULES:
             if rx.search(vend):
@@ -280,6 +303,13 @@ def classify_device(h, vend, private, gw):
         if m and cat not in seen:
             seen.add(cat)
             add(cat, w, f"{why}: “{m.group(0)}”")
+    if (vend and re.search(r"intelbras", vend, re.I) and 9009 in ports
+            and not ports & {53, 554, 37777, 443}):
+        add("acesso", 4, "MAC Intelbras com porta 9009 (monitoramento AMT): provável central de alarme")
+    if re.search(r"mpfsupload", text, re.I):
+        ev.append("servidor web embarcado Microchip (placa/módulo de equipamento)")
+    if h.get("netbios") and h["ip"] != gw:
+        add("computador", 4, f"responde por NetBIOS como {h['netbios']} (Windows/Samba)")
     if re.search(r"^(DESKTOP|LAPTOP|NOTEBOOK|PC|WIN|ESTACAO|NB)[-_]", name, re.I):
         add("computador", 3, f"nome de computador Windows ({name})")
     if re.search(r"SERV|SRV|SERVER|\bDC\d|^AD\d|NAS|STORAGE", name, re.I):
@@ -483,7 +513,7 @@ def update_device(chave, nome=None, categoria=None, notas=None):
 # ------------------------------------------------------------------ payload
 def build_payload(d, inv=None, parcial=False):
     inv = inv or load_inv()
-    my_ip, gw = local_info()
+    my_ip, gw = local_info(d.get("rede"))
     devices, servs = [], []
     seen = set()
     first_scan = len(inv.get("varreduras", [])) <= 1
@@ -514,6 +544,7 @@ def build_payload(d, inv=None, parcial=False):
             "chave": k, "ip": h["ip"], "mac": h.get("mac") or "", "fabricante": tidy_vendor(vend) if vend else "",
             "fabricante_full": vend or "", "mac_privado": private,
             "nome": e.get("nome") or auto_nome, "nome_auto": auto_nome, "nome_rede": nome_rede, "modelo": model or "",
+            "firmware": (h.get("descoberta") or {}).get("firmware", ""),
             "cat": cat, "cat_auto": cat_auto, "manual": bool(e.get("categoria")), "confianca": conf, "evidencias": ev,
             "tag": "gateway" if h["ip"] == gw else ("este computador" if h["ip"] == my_ip else ""),
             "online": True, "ping": h.get("ping"), "notas": e.get("notas", ""),
