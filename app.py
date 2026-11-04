@@ -344,6 +344,20 @@ def main():
                     pass
             WINDOW = webview.create_window(TITULO, url, js_api=Api(), width=1380, height=880, min_size=(960, 620),
                                            background_color="#141D16", text_select=True)
+
+            def ao_fechar():
+                """Com varredura em andamento, pergunta antes de fechar (o progresso seria perdido)."""
+                if not V.STATE.get("rodando"):
+                    return True
+                st = V.STATE
+                pct = st.get("feito", 0) * 100 / max(st.get("total", 0), 1)
+                r = ctypes.windll.user32.MessageBoxW(
+                    None, f"Há uma varredura em andamento ({pct:.0f}% da fase atual).\n\n"
+                          "Se fechar agora, a varredura será interrompida e o progresso perdido.\n\n"
+                          "Fechar mesmo assim?", TITULO,
+                    0x04 | 0x30 | 0x100 | 0x10000 | 0x40000)  # SIM/NÃO, alerta, padrão=Não, primeiro plano
+                return r == 6  # IDYES; False cancela o fechamento
+            WINDOW.events.closing += ao_fechar
             webview.start(gui="edgechromium", private_mode=False,
                           storage_path=os.path.join(I.DADOS, "webview"))
             print("Janela fechada — encerrando")

@@ -26,4 +26,5 @@ Requisitos
 ----------
 • Windows 10 ou 11 (64 bits).
 • Microsoft WebView2 (já presente no Windows 11 e na maioria dos Windows 10). Se faltar, o instalador
-  instala automaticamente, sem precisar de internet (o componente completo já vem dentro dele).
+  instala automaticamente: a versão OFFLINE já traz o componente completo (não precisa de internet);
+  a versão ONLINE baixa o componente da Microsoft (precisa de internet só nesse caso).
