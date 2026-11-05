@@ -2,6 +2,36 @@
 
 Programa desktop que descobre, identifica (pelo MAC, portas e páginas web) e mapeia todos os dispositivos da rede.
 
+## As telas
+
+<img src="docs/telas/01-painel.png" alt="Painel: dispositivos online, páginas web acessíveis, dispositivos por categoria e fabricantes pelo MAC" width="880">
+
+<table>
+<tr>
+<td width="50%"><img src="docs/telas/02-mapa-da-rede.png" alt="Mapa da rede: o gateway no centro e os dispositivos agrupados por categoria"><br>
+<b>Mapa da rede</b><br>
+O gateway no centro e cada aparelho no seu grupo: rede e Wi-Fi, câmeras, impressoras, computadores, servidores, celulares e TVs.</td>
+<td width="50%"><img src="docs/telas/03-dispositivos.png" alt="Lista de dispositivos com IP, MAC, fabricante, categoria, grau de confiança e serviços"><br>
+<b>Dispositivos</b><br>
+IP, MAC e fabricante de cada aparelho, a categoria deduzida com o grau de confiança e as portas abertas.</td>
+</tr>
+<tr>
+<td><img src="docs/telas/04-servicos.png" alt="Serviços agrupados por tipo, com botões para abrir e copiar o endereço"><br>
+<b>Serviços</b><br>
+Cada página web, câmera (RTSP), impressora e acesso remoto encontrado, com o endereço pronto para abrir ou copiar.</td>
+<td valign="top"><b>Como ele identifica cada aparelho</b>
+<ul>
+<li>Descobre quem está na rede por ping e pela tabela ARP, e consulta os APs Intelbras pelo protocolo de descoberta deles (modelo e firmware).</li>
+<li>Varre as portas TCP e lê o que cada serviço responde: título da página, servidor, RTSP, impressão RAW.</li>
+<li>Descobre o fabricante pelo prefixo do MAC (base pública do IEEE) e marca MAC privado/aleatório.</li>
+<li>Classifica cada aparelho com as evidências e o grau de confiança.</li>
+<li>Guarda o inventário: nomes e categorias que você define, primeira e última vez visto, aviso de aparelho novo.</li>
+</ul></td>
+</tr>
+</table>
+
+<sub>Capturas de um ambiente de demonstração: a rede, os nomes e os endereços são fictícios. Os fabricantes vêm da base pública do IEEE.</sub>
+
 ## Instalar em outra máquina / empresa
 
 Baixe na página de [Releases](../../releases/latest) e execute — cada instalador é um único arquivo com tudo dentro:
