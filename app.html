@@ -20,6 +20,7 @@
   --on-surface: #E6ECE3; --on-surface-variant: #B5C1B2; --outline: #7E8A7B; --outline-variant: #354537;
   --error: #FFB4AB; --on-error: #690005; --error-container: #93000A; --on-error-container: #FFDAD6;
   --warn: #F4C152; --ok: #7BE08F;
+  --lime: #CBF542; --on-lime: #19241B;  /* verde-lima da marca, igual nos dois temas */
   --scrim: rgba(0,0,0,.5);
   --c-roteador: #CBF542; --c-camera: #5BC0EB; --c-acesso: #F4A259; --c-impressora: #B48EF0;
   --c-servidor: #4FD1A5; --c-computador: #8FB3FF; --c-celular: #F07FA8; --c-tv: #FFD166;
@@ -50,11 +51,13 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
-body { margin: 0; background: var(--surface); color: var(--on-surface); font: 400 14px/1.45 'Figtree', 'Roboto', 'Inter', Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--surface); color: var(--on-surface); font: 400 14px/1.45 'Figtree', 'Segoe UI', 'Roboto', Arial, sans-serif; -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; }
 .msi { font-family: 'Material Symbols Rounded'; font-weight: normal; font-style: normal; font-size: 24px; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; direction: ltr; font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; user-select: none; }
 .msi.fill { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+/* sem a fonte de ícones (relatório aberto offline) o nome do ícone apareceria como texto: some com ele */
+.no-icons .msi, .no-icons #map .msi-t { display: none !important; }
 .mono { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12.5px; }
 .muted { color: var(--on-surface-variant); }
 [hidden] { display: none !important; }
@@ -80,7 +83,7 @@ a { color: inherit; }
 .topbar { position: sticky; top: 0; z-index: 15; background: var(--surface); display: flex; align-items: center; gap: 16px; padding: 14px 28px; border-bottom: 1px solid transparent; transition: border-color .2s, background .2s; }
 .topbar.scrolled { border-bottom-color: var(--outline-variant); background: var(--surface-container-low); }
 .topbar h1 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.2; }
-.topbar .sub { font-size: 12.5px; color: var(--on-surface-variant); }
+.topbar .sub { font-size: 12.5px; color: var(--on-surface-variant); overflow-wrap: anywhere; }
 .titles { min-width: 0; flex: 0 1 auto; }
 .searchbar { flex: 1 1 360px; max-width: 560px; margin-left: auto; height: 48px; border-radius: 24px; background: var(--surface-container-high); display: flex; align-items: center; gap: 8px; padding: 0 8px 0 16px; transition: background .15s, box-shadow .15s; }
 .searchbar:focus-within { background: var(--surface-container-highest); box-shadow: var(--elev-1); }
@@ -292,6 +295,94 @@ footer.ft { padding: 16px 28px 24px; border-top: 1px solid var(--outline-variant
 .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 14px; }
 .toolbar .grow { flex: 1; }
 
+/* ============ Diagnóstico ============ */
+.diag { max-width: 1160px; }
+.diag .section-title .grow, .toolbar .grow { flex: 1; }
+.rp-head { margin-top: 8px; }
+.rp-head .lbl, .rp-sum .lbl { font-size: 11.5px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--on-surface-variant); }
+.rp-head h2 { font-size: 30px; line-height: 1.15; margin: 6px 0 12px; font-weight: 700; letter-spacing: -.01em; }
+.rp-head h2::after { content: ""; display: block; width: 56px; height: 4px; border-radius: 2px; background: var(--lime); margin-top: 12px; }
+.rp-meta { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 13px; color: var(--on-surface-variant); }
+.rp-meta span { display: inline-flex; gap: 6px; align-items: center; }
+.rp-meta .msi { font-size: 18px; }
+.rp-sum { background: #19241B; color: #F1F5EC; border-radius: 16px; padding: 20px 24px; margin-top: 20px; font-size: 16px; line-height: 1.6; }
+.rp-sum .lbl { color: #CBF542; margin-bottom: 8px; }
+.rp-sum p { margin: 0 0 8px; } .rp-sum p:last-child { margin: 0; }
+.rp-sum strong { color: #CBF542; font-weight: 700; }
+.rp-h { font-size: 19px; font-weight: 600; margin: 32px 0 12px; display: flex; align-items: center; gap: 10px; }
+.rp-h .msi { color: var(--primary); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.tile { background: var(--surface-container-low); border: 1px solid var(--outline-variant); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+.tile.ok { --st: var(--ok); } .tile.warn { --st: var(--warn); } .tile.crit { --st: var(--error); }
+.tile .tl { font-size: 11.5px; font-weight: 700; color: var(--on-surface-variant); display: flex; flex-wrap: wrap; gap: 2px 7px; align-items: center; text-transform: uppercase; letter-spacing: .07em; }
+.tile .tlx { display: inline-flex; gap: 7px; align-items: center; }
+.tile .tl i { width: 9px; height: 9px; border-radius: 50%; background: var(--st, var(--outline)); flex: none; }
+.tile .tst { margin-left: auto; color: var(--st); letter-spacing: .04em; }
+.tile .tn { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 6px; line-height: 1.15; }
+.tile .ts { font-size: 12.5px; color: var(--on-surface-variant); margin-top: 2px; overflow-wrap: anywhere; }
+.g-ch2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin-top: 12px; align-items: start; }
+.ch-card .ch-t { font-weight: 600; margin-bottom: 10px; }
+.chart { width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ch-cap { font-size: 12.5px; color: var(--on-surface-variant); margin: 8px 0 0; }
+.chart text { font-variant-numeric: tabular-nums; }
+.ch-lbl { font-size: 13px; font-weight: 600; fill: var(--on-surface); }
+.ch-lbl2 { font-weight: 700; fill: var(--on-surface); }
+.ch-ax { font-size: 11.5px; fill: var(--on-surface-variant); }
+.ch-val { font-size: 12.5px; font-weight: 700; fill: var(--on-surface); }
+.ch-grid { stroke: var(--outline-variant); stroke-width: 1; }
+.ch-track { fill: var(--surface-container-highest); }
+.ch-whisk line { stroke: var(--on-surface); stroke-width: 1.5; }
+.ch-plan { stroke: var(--on-surface); stroke-width: 2.5; }
+.ch-line { fill: none; stroke: var(--primary); stroke-width: 1.5; stroke-linejoin: round; }
+.ch-area { fill: var(--primary); opacity: .16; }
+.ch-lost { stroke: var(--error); stroke-width: 2.5; }
+.ch-hit { fill: transparent; }
+.ch-row[data-gocat], .ch-row[data-ports] { cursor: pointer; }
+.ch-row[data-gocat]:hover .ch-hit, .ch-row[data-ports]:hover .ch-hit { fill: color-mix(in srgb, var(--on-surface) 6%, transparent); }
+.dt.fixo tbody tr { cursor: default; } .dt.fixo tbody tr:hover { background: none; }
+.dt td.num { font-variant-numeric: tabular-nums; font-weight: 700; }
+.dotc { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--c); margin-right: 8px; }
+.ipcs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.ipc { display: inline-flex; height: 22px; padding: 0 7px; border-radius: 6px; background: var(--surface-container-highest); font-size: 12px; align-items: center; margin: 0 4px 4px 0; }
+.ipcs .ipc { margin: 0; }
+.achs { display: flex; flex-direction: column; gap: 10px; }
+.ach { border-radius: 16px; padding: 14px 18px; background: var(--surface-container-low); border: 1px solid var(--outline-variant); border-left: 4px solid var(--sev); }
+.ach.crit { --sev: var(--error); } .ach.warn { --sev: var(--warn); } .ach.info { --sev: var(--primary); } .ach.ok { --sev: var(--ok); }
+.ach-hd { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ach h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.ach p { margin: 8px 0 0; }
+.ach .acao { font-size: 13.5px; }
+.ach .acao b { font-size: 11.5px; letter-spacing: .08em; }
+.sevchip { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: 11px; font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--sev) 20%, transparent); color: var(--sev); }
+.plano { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.plano li { display: flex; gap: 14px; align-items: flex-start; background: var(--surface-container-low); border: 1px solid var(--outline-variant); border-radius: 14px; padding: 12px 16px; }
+.plano .num { width: 32px; height: 32px; border-radius: 50%; background: var(--lime); color: var(--on-lime); display: grid; place-items: center; font-weight: 800; flex: none; font-variant-numeric: tabular-nums; }
+.plano p { margin: 4px 0 0; color: var(--on-surface-variant); }
+.pend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pend li { display: flex; gap: 10px; align-items: flex-start; }
+.pend li .msi { font-size: 20px; color: var(--warn); }
+.rp-ft { display: flex; justify-content: space-between; border-top: 1px solid var(--outline-variant); padding-top: 12px; margin-top: 36px; font-size: 12.5px; color: var(--on-surface-variant); }
+body[data-page="diagnostico"] footer.ft { display: none; }
+.warnbox { border-left: 3px solid var(--warn); padding: 6px 10px; border-radius: 6px; background: color-mix(in srgb, var(--warn) 10%, transparent); color: var(--on-surface); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dlg { border: 0; border-radius: 24px; padding: 0; background: var(--surface-container-high); color: var(--on-surface); box-shadow: var(--elev-3); width: min(520px, calc(100vw - 32px)); }
+.dlg::backdrop { background: var(--scrim); }
+.dlg-body { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+.dlg-body h2 { margin: 0; font-size: 22px; font-weight: 600; display: flex; gap: 10px; align-items: center; }
+.dlg-body p { margin: 0; }
+.dlg-body .hint { font-size: 12.5px; color: var(--on-surface-variant); margin-top: -4px; }
+.dlg-body .hint.warnbox { color: var(--on-surface); margin-top: 0; }
+.dlg-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+@media (max-width: 900px) { .g-ch2 { grid-template-columns: 1fr; } }
+@media (max-width: 520px) {
+  .rp-head h2 { font-size: 24px; } .tiles { grid-template-columns: 1fr 1fr; } .tile .tn { font-size: 21px; } .tile .tl { letter-spacing: .03em; }
+  .form-row { grid-template-columns: 1fr; }
+  .rail .dest { font-size: 10px; letter-spacing: 0; min-width: 0; } .rail .dest .ind { width: 46px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
 /* ============ Responsivo ============ */
 @media (max-width: 1100px) { .g-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .g-2, .g-scan { grid-template-columns: 1fr; } }
 @media (max-width: 840px) {
@@ -308,6 +399,35 @@ footer.ft { padding: 16px 28px 24px; border-top: 1px solid var(--outline-variant
   footer.ft { padding: 16px; }
 }
 @media (max-width: 520px) { .dt .c-svc { display: none; } .g-stats { gap: 8px; } .stat .n { font-size: 24px; } .stat .ic { width: 40px; height: 40px; } }
+/* ============ Impressão (A4, tema claro) ============ */
+@page { size: A4; margin: 12mm; }
+@media print {
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --primary: #32673A; --on-primary: #FFFFFF; --primary-container: #CBF542; --on-primary-container: #1A1A1A;
+    --secondary-container: #DCE7D3; --on-secondary-container: #17221A;
+    --surface: #FFFFFF; --surface-dim: #E6E8E0; --surface-container-lowest: #FFFFFF; --surface-container-low: #FFFFFF;
+    --surface-container: #F0F2EA; --surface-container-high: #EAEDE3; --surface-container-highest: #E3E7DC;
+    --on-surface: #1A1A1A; --on-surface-variant: #4A5348; --outline: #747D71; --outline-variant: #C8CEC2;
+    --error: #BA1A1A; --warn: #9A6A00; --ok: #23843A;
+    --c-roteador: #5E8C00; --c-camera: #0B7FAB; --c-acesso: #C46A12; --c-impressora: #7C4DCC; --c-servidor: #138A63;
+    --c-computador: #3C6FD1; --c-celular: #C2457A; --c-tv: #A87900; --c-iot: #2E8B3E; --c-voip: #C9541F; --c-desconhecido: #6B6B6B;
+    color-scheme: light;
+  }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: #fff; font-size: 12.5px; }
+  .app { display: block; }
+  .rail, .topbar, .banner, .sheet, .scrim, .snackbar, .dlg, .no-print, footer.ft { display: none !important; }
+  .page { padding: 0 !important; max-width: none; }
+  .card, .card.elev { box-shadow: none; }
+  .tile, .ach, .ch-card, .plano li, .rp-sum, .tablecard, .dt tr, .pend li { break-inside: avoid; }
+  .rp-h { break-after: avoid; margin-top: 22px; }
+  .g-ch2 { grid-template-columns: 1fr 1fr; }
+  .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .tile .tn { font-size: 19px; }
+  .rp-head h2 { font-size: 24px; }
+  .rp-ft { display: flex !important; }
+  .mapcard { height: 180mm; }
+}
 </style>
 </head>
 <body>
@@ -318,6 +438,7 @@ footer.ft { padding: 16px 28px 24px; border-top: 1px solid var(--outline-variant
     <button class="dest" data-p="mapa"><span class="ind"><span class="msi">hub</span></span>Mapa</button>
     <button class="dest" data-p="dispositivos"><span class="ind"><span class="msi">devices</span><span class="badge" id="badge-novos" hidden></span></span>Dispositivos</button>
     <button class="dest" data-p="servicos"><span class="ind"><span class="msi">lan</span></span>Serviços</button>
+    <button class="dest" data-p="diagnostico"><span class="ind"><span class="msi">monitor_heart</span></span>Diagnóstico</button>
     <button class="dest app-only" data-p="varredura"><span class="ind"><span class="msi">radar</span></span>Varredura</button>
     <div class="spacer"></div>
     <button class="icon-btn rail-extra" id="btn-theme" title="Alternar tema claro/escuro"><span class="msi">dark_mode</span></button>
@@ -357,6 +478,7 @@ footer.ft { padding: 16px 28px 24px; border-top: 1px solid var(--outline-variant
 <div class="scrim" id="scrim"></div>
 <aside class="sheet" id="sheet" aria-label="Detalhes do dispositivo"></aside>
 <div class="snackbar" id="snack"></div>
+<dialog class="dlg" id="dlg"></dialog>
 
 <script>
 const EMBED = /*__DADOS__*/null;
@@ -367,7 +489,7 @@ let ESTADO = null;
 const st = {
   page: 'painel', q: '',
   devCat: 'todas', devFlag: 'todos', sort: ['ip', 1],
-  svcCat: 'todas', links: true, sys: false,
+  svcCat: 'todas', links: true, sys: false, svcPorts: null,
   mapHidden: new Set(), mapOffline: false, sel: null,
   view: { k: 1, x: 0, y: 0, fitted: false },
   scanForm: { rede: '', preset: 'todas', portas: '1-65535', conc: 2000, timeout: 0.6 },
@@ -431,11 +553,12 @@ const matchQ = h => terms().every(t => h.includes(t));
 // ---------------------------------------------------------------- navegação
 const PAGES = {
   painel: ['Painel', renderPainel], mapa: ['Mapa da rede', renderMapa], dispositivos: ['Dispositivos', renderDispositivos],
-  servicos: ['Serviços', renderServicos], varredura: ['Varredura', renderVarredura],
+  servicos: ['Serviços', renderServicos], diagnostico: ['Diagnóstico', renderDiagnostico], varredura: ['Varredura', renderVarredura],
 };
 function go(p, opts = {}) {
   if (STATIC && p === 'varredura') p = 'painel';
   st.page = p;
+  document.body.dataset.page = p;
   Object.assign(st, opts);
   $$('.dest').forEach(b => b.classList.toggle('on', b.dataset.p === p));
   try { history.replaceState(null, '', '#' + p); } catch (e) {}
@@ -445,7 +568,7 @@ function render(scrollTop) {
   const [title, fn] = PAGES[st.page];
   $('#pg-title').textContent = title;
   updateSub();
-  if (!D && st.page !== 'varredura') {
+  if (!D && st.page !== 'varredura' && st.page !== 'diagnostico') {
     $('#view').innerHTML = `<div class="page"><div class="empty">${ic('radar')}<h2>Nenhuma varredura ainda</h2>
       <p>Faça a primeira varredura para descobrir os dispositivos da rede.</p>
       ${STATIC ? '' : `<button class="btn filled" onclick="go('varredura')">${ic('play_arrow')}Ir para Varredura</button>`}</div></div>`;
@@ -455,10 +578,11 @@ function render(scrollTop) {
   if (scrollTop) window.scrollTo({ top: 0 });
 }
 function updateSub() {
-  if (!D) { $('#pg-sub').textContent = ''; return; }
+  if (!D) { $('#pg-sub').textContent = ''; $('#ft-info').textContent = ''; return; }
   const m = D.meta;
+  const pt = (m.portas || '').length > 40 ? `${m.portas.split(',').length} portas selecionadas${/interrompida/.test(m.portas) ? ' (interrompida)' : ''}` : 'portas ' + m.portas;
   $('#pg-sub').textContent = m.parcial ? `Rede ${m.rede} · varredura em andamento (resultados parciais)` :
-    `Rede ${m.rede} · varredura de ${m.data} · portas ${m.portas}` + (STATIC ? ' · relatório estático' : '');
+    `Rede ${m.rede} · varredura de ${m.data} · ${pt}` + (STATIC ? ' · relatório estático' : '');
   $('#ft-info').textContent = STATIC ? `Relatório gerado em ${m.gerado}` : `Última varredura: ${m.data} (${m.duracao})`;
   const novos = D.dispositivos.filter(d => d.novo).length;
   const b = $('#badge-novos'); b.hidden = !novos; b.textContent = novos;
@@ -577,7 +701,8 @@ function bindDevClicks() {
 
 // ---------------------------------------------------------------- SERVIÇOS
 function renderServicos() {
-  const base = D.servicos.filter(s => matchQ(s._h) && (st.sys || s.cat !== 'sistema') && (!st.links || hasLink(s)));
+  const fp = st.svcPorts;
+  const base = D.servicos.filter(s => matchQ(s._h) && (st.sys || s.cat !== 'sistema') && (!st.links || hasLink(s)) && (!fp || fp.ports.includes(s.port)));
   const chips = [`<button class="chip ${st.svcCat === 'todas' ? 'on' : ''}" data-scat="todas">${st.svcCat === 'todas' ? ic('check') : ''}Todos <span class="cnt">${base.length}</span></button>`]
     .concat(D.svcCats.map(c => { const n = base.filter(s => s.cat === c.id).length; if (!n) return '';
       return `<button class="chip ${st.svcCat === c.id ? 'on' : ''}" data-scat="${c.id}">${ic(st.svcCat === c.id ? 'check' : c.icone)}${esc(c.nome)} <span class="cnt">${n}</span></button>`; })).join('');
@@ -590,6 +715,7 @@ function renderServicos() {
   $('#view').innerHTML = `<div class="page">
     <div class="chips scroll" style="margin-bottom:10px">${chips}</div>
     <div class="toolbar">
+      ${fp ? `<button class="chip on" id="sv-fp" title="Remover filtro">${ic('filter_alt')}${esc(fp.rotulo)}${ic('close')}</button>` : ''}
       <label class="switch"><input type="checkbox" id="sw-links" ${st.links ? 'checked' : ''}>Só serviços com link</label>
       <label class="switch"><input type="checkbox" id="sw-sys" ${st.sys ? 'checked' : ''}>Mostrar serviços de sistema</label>
     </div>
@@ -598,6 +724,7 @@ function renderServicos() {
   $$('[data-scat]').forEach(b => b.onclick = () => { st.svcCat = b.dataset.scat; render(); });
   $('#sw-links').onchange = e => { st.links = e.target.checked; render(); };
   $('#sw-sys').onchange = e => { st.sys = e.target.checked; render(); };
+  if ($('#sv-fp')) $('#sv-fp').onclick = () => { st.svcPorts = null; st.links = true; st.sys = false; render(); };
   $$('.svc [data-dev]').forEach(b => b.onclick = () => openSheet(b.dataset.dev));
 }
 function svcActions(s, small) {
@@ -890,10 +1017,20 @@ function updateScanUI() {
   const q = $('#btn-quit'); if (q) q.hidden = e.modo !== 'navegador';
   const pct = e.total ? Math.min(100, e.feito / e.total * 100) : 0;
   const txt = e.rodando ? `${FASE_TXT[e.fase] || e.fase} — ${pct.toFixed(1)}% · ${e.hosts} hosts · ${e.abertas} portas abertas · faltam ${eta(e)}` : '';
-  $('#scan-banner').hidden = !e.rodando || st.page === 'varredura';
-  $('#sb-fase').textContent = FASE_TXT[e.fase] || 'Varrendo';
-  $('#sb-txt').textContent = e.rodando ? `${pct.toFixed(1)}% · ${e.hosts} hosts · ${e.abertas} portas abertas · faltam ${eta(e)}` : '';
-  $('#sb-lp i').style.width = pct + '%';
+  const dg = e.diag || {};
+  if (dg.rodando) {  // diagnóstico (inclui a varredura rápida que ele roda antes)
+    const dp = dg.total ? Math.min(100, dg.feito / dg.total * 100) : 0;
+    $('#scan-banner').hidden = st.page === 'diagnostico';
+    $('#sb-fase').textContent = 'Diagnóstico: ' + (DFASES[dg.fase] || [dg.fase])[0];
+    $('#sb-txt').textContent = `${dp.toFixed(0)}%` + (dg.sub ? ' · ' + (FASE_TXT[dg.sub] || dg.sub) : '');
+    $('#sb-lp i').style.width = dp + '%';
+  } else {
+    $('#scan-banner').hidden = !e.rodando || st.page === 'varredura';
+    $('#sb-fase').textContent = FASE_TXT[e.fase] || 'Varrendo';
+    $('#sb-txt').textContent = e.rodando ? `${pct.toFixed(1)}% · ${e.hosts} hosts · ${e.abertas} portas abertas · faltam ${eta(e)}` : '';
+    $('#sb-lp i').style.width = pct + '%';
+  }
+  if (st.page === 'diagnostico') updateDiagUI();
   if (st.page === 'varredura') {
     const t = $('#sc-txt'); if (t && e.rodando) t.textContent = txt;
     const sp = $('#sc-steps'); if (sp && sp.dataset.fase !== e.fase) { sp.innerHTML = stepsHtml(e.fase); sp.dataset.fase = e.fase; }
@@ -903,6 +1040,349 @@ function updateScanUI() {
     const lg = $('#sc-log'); if (lg) { const atBottom = lg.scrollTop + lg.clientHeight >= lg.scrollHeight - 20; lg.textContent = (e.log || []).join('\n'); if (atBottom) lg.scrollTop = lg.scrollHeight; }
     const om = $('#oui-msg'); if (om && e.oui) om.textContent = e.oui.msg || '';
   }
+}
+
+// ---------------------------------------------------------------- DIAGNÓSTICO
+const SEV = { crit: 'Crítico', warn: 'Atenção', info: 'Verificar', ok: 'OK' };
+const DFASES = { varredura: ['Varredura', 'radar'], adaptador: ['Placa', 'settings_ethernet'], gateway: ['Roteador', 'router'], internet: ['Internet', 'public'], dns: ['DNS', 'dns'], mtu: ['MTU', 'straighten'], rota: ['Rota', 'route'], velocidade: ['Velocidade', 'speed'] };
+const nf = (v, d = 1) => v == null || v === '' || isNaN(v) ? '—' : Number(v).toLocaleString('pt-BR', { maximumFractionDigits: d });
+const median = a => { const s = (a || []).filter(x => typeof x === 'number').sort((x, y) => x - y); if (!s.length) return null; const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const shortIp = ip => '.' + String(ip).split('.').pop();
+const ipChips = ips => (ips || []).map(ip => `<span class="ipc mono" title="${esc(ip)}">${esc(shortIp(ip))}</span>`).join('');
+const bold = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+function niceTicks(max, n = 4) {
+  if (!(max > 0)) return [0];
+  const raw = max / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+  const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+const svgOpen = (W, H, label) => `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(label)}" xmlns="http://www.w3.org/2000/svg">`;
+
+function renderDiagnostico() {
+  const R = D && D.diagnostico, cfg = (D && D.config) || {}, e = (ESTADO && ESTADO.diag) || {};
+  const run = !STATIC && !!e.rodando, busy = run || !!(ESTADO && ESTADO.rodando);
+  const acts = STATIC ? '' : `<div class="toolbar no-print">
+      <button class="btn filled" id="dg-run" ${busy ? 'disabled' : ''}>${ic('play_arrow')}Rodar diagnóstico</button>
+      <button class="btn tonal" id="dg-cfg">${ic('tune')}Configurar</button>
+      <button class="btn outlined" id="dg-exp" ${R ? '' : 'disabled'}>${ic('download')}Exportar relatório</button>
+      <span class="grow"></span>${R ? `<span class="muted">Último diagnóstico: ${esc(fmtDate(R.fim || R.inicio))}</span>` : ''}</div>`;
+  const prog = STATIC ? '' : `<div class="card elev no-print" id="dg-prog" style="margin-bottom:16px" hidden>
+      <div class="section-title" style="margin-top:0">${ic('monitor_heart')}<span id="dg-tit">Diagnóstico em andamento</span><span class="grow"></span>
+        <button class="btn sm danger" id="dg-stop">${ic('stop')}Parar</button></div>
+      <div class="steps" id="dg-steps"></div>
+      <div class="muted" id="dg-txt"></div>
+      <div class="lp" id="dg-lp"><i style="width:0"></i></div>
+      <div class="console" id="dg-log" style="height:150px;margin-top:12px"></div></div>`;
+  if (!R) {
+    $('#view').innerHTML = `<div class="page diag">${acts}${prog}<div class="empty">${ic('monitor_heart')}<h2>Nenhum diagnóstico ainda</h2>
+      <p>O diagnóstico testa o roteador, a internet, o DNS, o MTU, a rota e a velocidade, e monta um relatório com os pontos a corrigir.</p>
+      ${STATIC ? '' : `<p class="muted">Antes de rodar, informe em <b>Configurar</b> o nome do local e o plano de internet contratado.</p>`}</div></div>`;
+    bindDiag(); updateDiagUI(true); return;
+  }
+  const gwDev = D.dispositivos.find(d => d.ip === R.gw);
+  const meta = [
+    `${ic('event')}${esc(fmtDate(R.fim || R.inicio))}`,
+    R.gw ? `${ic('router')}Gateway ${esc(R.gw)}${gwDev && gwDev.fabricante ? ' · ' + esc(gwDev.fabricante) : ''}` : '',
+    `${ic('lan')}Rede ${esc(R.rede)}`,
+    cfg.autor ? `${ic('person')}${esc(cfg.autor)}` : '',
+  ].filter(Boolean).map(x => `<span>${x}</span>`).join('');
+  const resumo = (R.resumo || []).map(f => `<p>${bold(f)}</p>`).join('') || '<p>Sem pontos para destacar.</p>';
+  const seg = (R.exposicao || []).some(x => x.n);
+  const infra = (R.infra || []).map(r => `<tr><td><span class="dotc" style="--c:${cvar(r.cat)}"></span>${esc(r.funcao)}</td><td class="num">${r.qtd}</td>
+      <td>${ipChips(r.ips.slice(0, 14))}${r.ips.length > 14 ? `<span class="badge-s">+${r.ips.length - 14}</span>` : ''}</td><td>${esc(r.fabricante)}</td><td>${esc(r.detalhe)}</td></tr>`).join('');
+  const ach = (R.achados || []).map(a => `<article class="ach ${a.sev}">
+      <div class="ach-hd"><span class="sevchip">${SEV[a.sev] || a.sev}</span><h3>${esc(a.titulo)}</h3></div>
+      <p>${esc(a.texto)}</p>${a.ips && a.ips.length ? `<div class="ipcs">${ipChips(a.ips)}</div>` : ''}
+      ${a.acao ? `<p class="acao"><b>AÇÃO:</b> ${esc(a.acao)}</p>` : ''}</article>`).join('');
+  const plano = (R.plano || []).map((p, i) => `<li><span class="num">${i + 1}</span><div><b>${esc(p.titulo)}</b><p>${esc(p.texto)}</p>${p.ips && p.ips.length ? `<div class="ipcs">${ipChips(p.ips)}</div>` : ''}</div></li>`).join('');
+  const pend = (R.pendencias || []).map(x => `<li>${ic('help')}<span>${esc(x)}</span></li>`).join('');
+  const ano = (R.fim || R.inicio || '').slice(0, 4) || new Date().getFullYear();
+  $('#view').innerHTML = `<div class="page diag">${acts}${prog}
+    <header class="rp-head">
+      <div class="lbl">Relatório técnico · Infraestrutura de rede</div>
+      <h2>Diagnóstico da rede ${esc(cfg.local || R.rede)}</h2>
+      <div class="rp-meta">${meta}</div>
+    </header>
+    <section class="rp-sum" aria-label="Resumo"><div class="lbl">Resumo</div>${resumo}</section>
+    ${R.cancelado ? `<p class="hint warnbox">O diagnóstico foi interrompido antes do fim; alguns testes estão incompletos.</p>` : ''}
+
+    <h3 class="rp-h">${ic('network_check')}Testes de conexão</h3>
+    <div class="tiles">${tilesHtml(R, cfg)}</div>
+    <div class="grid g-ch2">
+      <div class="card ch-card"><div class="ch-t">Velocidade livre × plano contratado</div><div class="chart" data-ch="g2"></div>
+        <p class="ch-cap">Mede quanto do link estava livre no momento do teste, não a velocidade total do plano.</p></div>
+      <div class="card ch-card"><div class="ch-t">Latência até o roteador</div><div class="chart" data-ch="g3"></div></div>
+    </div>
+
+    <h3 class="rp-h">${ic('devices')}Equipamentos encontrados</h3>
+    <div class="card ch-card"><div class="ch-t">Equipamentos online por categoria</div><div class="chart" data-ch="g1"></div>
+      <p class="ch-cap">${D.dispositivos.filter(d => d.online).length} equipamentos online na varredura de ${esc(D.meta.data)}.</p></div>
+    ${infra ? `<div class="card tablecard" style="margin-top:12px"><table class="dt fixo"><thead><tr><th>Função</th><th>Qtd.</th><th>IPs</th><th>Fabricante</th><th>Modelo / firmware</th></tr></thead><tbody>${infra}</tbody></table></div>` : ''}
+
+    <h3 class="rp-h">${ic('flag')}Pontos encontrados</h3>
+    <div class="achs">${ach || '<p class="muted">Nenhum ponto encontrado.</p>'}</div>
+    ${seg ? `<div class="card ch-card" style="margin-top:12px"><div class="ch-t">Exposição de serviços sensíveis</div><div class="chart" data-ch="g4"></div>
+      <p class="ch-cap">Número de equipamentos com cada serviço aberto para a rede.</p></div>` : ''}
+
+    ${plano ? `<h3 class="rp-h">${ic('checklist')}Plano de ação</h3><ol class="plano">${plano}</ol>` : ''}
+    ${pend ? `<h3 class="rp-h">${ic('pending_actions')}Informações pendentes</h3><ul class="pend">${pend}</ul>` : ''}
+    <footer class="rp-ft"><span>Make Distribuidora</span><span>${esc(ano)}</span></footer>
+  </div>`;
+  drawCharts(); bindDiag(); updateDiagUI(true);
+}
+
+function tilesHtml(R, cfg) {
+  const ids = new Set((R.achados || []).map(a => a.id));
+  const tile = (l, n, s, stt) => `<div class="tile ${stt || ''}"><div class="tl"><span class="tlx"><i></i>${l}</span>${stt ? `<span class="tst">${{ ok: 'OK', warn: 'Atenção', crit: 'Crítico' }[stt]}</span>` : ''}</div><div class="tn">${n}</div><div class="ts">${s}</div></div>`;
+  const out = [];
+  const g = R.gateway || {};
+  out.push(tile('Roteador', g.enviados ? nf(g.perda_pct) + '% perda' : '—',
+    g.enviados ? `${g.enviados} pings · média ${nf(g.media_ms, 2)} ms · máx ${nf(g.max_ms)} ms` : 'não medido', g.enviados ? (ids.has('R-01') ? 'crit' : 'ok') : ''));
+  const inet = (R.internet || []).filter(x => x && x.enviados);
+  if (inet.length) {
+    const env = inet.reduce((s, x) => s + x.enviados, 0), per = inet.reduce((s, x) => s + x.perdidos, 0);
+    const ok = inet.filter(x => x.media_ms != null), md = ok.length ? ok.reduce((s, x) => s + x.media_ms, 0) / ok.length : null;
+    const pp = per / env * 100;
+    out.push(tile('Internet', md != null ? nf(md) + ' ms' : 'sem resposta', `${inet.map(x => x.alvo).join(' e ')} · perda ${nf(pp)}%`, md == null || pp > 1 || md > 80 ? 'warn' : 'ok'));
+  } else out.push(tile('Internet', '—', 'não medido', ''));
+  const v = R.velocidade || {};
+  const vel = (l, vals, plano) => {
+    const m = median(vals);
+    if (m == null) return tile(l, '—', v.pulado ? 'teste desligado' : v.erro ? 'o teste falhou' : 'não medido', '');
+    const pct = plano ? m / plano : null;
+    return tile(l, nf(m) + ' Mbps', `${nf(Math.min(...vals))}–${nf(Math.max(...vals))} Mbps` + (pct != null ? ` · ${Math.round(pct * 100)}% do plano` : ' · plano não informado'),
+      pct == null ? '' : pct >= .8 ? 'ok' : pct >= .6 ? 'warn' : 'crit');
+  };
+  out.push(vel('Download livre', v.download_mbps, cfg.plano_down_mbps));
+  out.push(vel('Upload livre', v.upload_mbps, cfg.plano_up_mbps));
+  const a = R.adaptador || {}, errs = (a.erros_rx || 0) + (a.erros_tx || 0);
+  const wf = a.wifi || {};
+  out.push(tile('Placa de rede', a.velocidade_mbps ? nf(a.velocidade_mbps, 0) + ' Mbps' : '—',
+    `${a.tipo === 'wifi' ? 'Wi-Fi' + (wf.sinal_pct != null ? ' · sinal ' + wf.sinal_pct + '%' : '') + (wf.canal ? ' · canal ' + wf.canal : '') : 'Cabo'} · ${errs} erro${errs === 1 ? '' : 's'}`,
+    a.velocidade_mbps ? (ids.has('R-12') || errs ? 'warn' : 'ok') : ''));
+  const dns = (R.dns || []).filter(x => x && x.consultas), usados = (a.dns || []);
+  const d0 = dns.find(x => usados.includes(x.servidor)) || dns[0];
+  out.push(tile('DNS', d0 ? (d0.mediana_ms != null ? nf(d0.mediana_ms) + ' ms' : 'falhou') : '—',
+    d0 ? `${d0.servidor} · ${d0.falhas} falha${d0.falhas === 1 ? '' : 's'}${dns.length > 1 ? ` · ${dns.length} servidores testados` : ''}` : 'não medido', d0 ? (ids.has('R-11') ? 'warn' : 'ok') : ''));
+  const m = R.mtu || {};
+  out.push(tile('MTU', m.caminho ? nf(m.caminho, 0) + ' bytes' : '—', m.caminho ? (m.pmtud_ok ? 'aviso de fragmentação funcionando' : 'sem aviso de fragmentação') : 'não medido',
+    m.caminho ? (ids.has('R-13') ? 'warn' : 'ok') : ''));
+  const r = R.rota || {}, h1 = (r.hops || []).find(h => h.ip);
+  out.push(tile('Rota', r.saltos ? r.saltos + ' saltos' : '—', r.chegou ? `até ${esc(r.alvo)}${h1 ? ' · 1º salto ' + esc(h1.ip) : ''}` : r.hops ? 'não chegou em 15 saltos' : 'não medido',
+    r.hops ? (r.chegou ? 'ok' : 'warn') : ''));
+  return out.join('');
+}
+
+// ---- gráficos (SVG inline; todas as cores vêm de tokens CSS)
+const CHARTS = { g1: chartG1, g2: chartG2, g3: chartG3, g4: chartG4 };
+function drawCharts() {
+  $$('#view .chart[data-ch]').forEach(el => {
+    const W = Math.max(300, Math.round(el.clientWidth || 640));
+    let html = '';
+    try { html = CHARTS[el.dataset.ch](W) || ''; } catch (e) { console.error(e); }
+    el.innerHTML = html || '<p class="muted" style="margin:0">Sem dados para este gráfico.</p>';
+  });
+  if (!STATIC) {
+    $$('#view [data-gocat]').forEach(b => b.onclick = () => go('dispositivos', { devCat: b.dataset.gocat, devFlag: 'online' }));
+    $$('#view [data-ports]').forEach(b => b.onclick = () => { st.svcPorts = { ports: b.dataset.ports.split(',').map(Number), rotulo: b.dataset.rot }; st.links = false; st.sys = true; st.svcCat = 'todas'; go('servicos'); });
+  }
+}
+function hbars(W, rows, label, color, attr) {
+  // rows: [{nome, n, c?, attr?, title}]
+  const LW = Math.min(180, Math.round(W * 0.4)), RW = 40, rowH = 30, H = rows.length * rowH + 6;
+  const max = Math.max(1, ...rows.map(r => r.n));
+  const x = v => LW + (W - LW - RW) * v / max;
+  let s = svgOpen(W, H, label);
+  rows.forEach((r, i) => {
+    const y = i * rowH + 4, nome = r.nome.length > 24 ? r.nome.slice(0, 23) + '…' : r.nome;
+    s += `<g class="ch-row" ${STATIC ? '' : r.attr || ''}><title>${esc(r.title || r.nome + ': ' + r.n)}</title>
+      <rect x="0" y="${y - 2}" width="${W}" height="${rowH - 2}" class="ch-hit"/>
+      <text x="${LW - 10}" y="${y + 15}" text-anchor="end" class="ch-lbl">${esc(nome)}</text>
+      <rect x="${LW}" y="${y + 3}" width="${Math.max(r.n ? 3 : 0, x(r.n) - LW).toFixed(1)}" height="16" rx="4" style="fill:${r.c || color}"/>
+      <text x="${(x(r.n) + 6).toFixed(1)}" y="${y + 16}" class="ch-val">${r.n}</text></g>`;
+  });
+  return s + '</svg>';
+}
+function chartG1(W) {
+  const on = D.dispositivos.filter(d => d.online);
+  const rows = D.devCats.map(c => ({ nome: c.nome, n: on.filter(d => d.cat === c.id).length, c: cvar(c.id), attr: `data-gocat="${c.id}"` }))
+    .filter(r => r.n).sort((a, b) => b.n - a.n);
+  if (!rows.length) return '';
+  return hbars(W, rows, 'Equipamentos online por categoria: ' + rows.map(r => `${r.nome} ${r.n}`).join(', '));
+}
+function chartG4(W) {
+  const ex = (D.diagnostico.exposicao || []);
+  if (!ex.some(x => x.n)) return '';
+  const rows = ex.map(x => ({ nome: x.rotulo, n: x.n, attr: `data-ports="${x.portas.join(',')}" data-rot="${esc(x.rotulo)}"`, title: `${x.rotulo}: ${x.n} equipamento(s)${x.ips.length ? ' — ' + x.ips.map(shortIp).join(' ') : ''}` }));
+  return hbars(W, rows, 'Equipamentos com serviços sensíveis abertos: ' + rows.map(r => `${r.nome} ${r.n}`).join(', '), 'var(--warn)');
+}
+function chartG2(W) {
+  const R = D.diagnostico, v = R.velocidade || {}, cfg = D.config || {};
+  const rows = [['Download', v.download_mbps || [], cfg.plano_down_mbps], ['Upload', v.upload_mbps || [], cfg.plano_up_mbps]].filter(r => r[1].length);
+  if (!rows.length) return '';
+  const narrow = W < 540;
+  const M = Math.max(...rows.flatMap(r => r[1]), ...rows.map(r => r[2] || 0));
+  const LW = 96, RW = narrow ? 8 : 150, top = 24, rowH = narrow ? 70 : 54, H = top + rows.length * rowH + 18;
+  const x0 = LW, x1 = W - RW, x = val => x0 + (x1 - x0) * val / M;
+  const tk = niceTicks(M, narrow ? 3 : 5);
+  let s = svgOpen(W, H, 'Velocidade livre medida comparada ao plano: ' + rows.map(([n, vals, p]) => `${n} mediana ${nf(median(vals))} Mbps${p ? ' de ' + p + ' contratados' : ''}`).join('; '));
+  tk.forEach(t => s += `<line x1="${x(t).toFixed(1)}" x2="${x(t).toFixed(1)}" y1="${top - 4}" y2="${H - 16}" class="ch-grid"/><text x="${x(t).toFixed(1)}" y="${H - 3}" text-anchor="middle" class="ch-ax">${nf(t, 1)}</text>`);
+  rows.forEach(([nome, vals, plano], i) => {
+    const yc = top + i * rowH + 20, m = median(vals), lo = Math.min(...vals), hi = Math.max(...vals);
+    const pct = plano ? m / plano : null;
+    const cor = pct == null ? 'var(--primary)' : pct >= .8 ? 'var(--ok)' : pct >= .6 ? 'var(--warn)' : 'var(--error)';
+    const rot = `${nf(lo)}–${nf(hi)} Mbps${pct != null ? ' · ' + Math.round(pct * 100) + '%' : ''}`;
+    s += `<text x="0" y="${yc - 1}" class="ch-lbl">${nome}</text><text x="0" y="${yc + 14}" class="ch-ax">mediana ${nf(m)}</text>`;
+    s += `<rect x="${x0}" y="${yc - 11}" width="${((plano ? x(plano) : x1) - x0).toFixed(1)}" height="22" rx="6" class="ch-track"/>`;
+    s += `<rect x="${x0}" y="${yc - 7}" width="${Math.max(2, x(m) - x0).toFixed(1)}" height="14" rx="4" style="fill:${cor}"><title>${nome}: mediana ${nf(m)} Mbps${plano ? ` (${Math.round(pct * 100)}% do plano de ${nf(plano, 0)} Mbps)` : ''}</title></rect>`;
+    s += `<g class="ch-whisk"><title>Rodadas: ${vals.map(z => nf(z)).join(', ')} Mbps</title><line x1="${x(lo).toFixed(1)}" x2="${x(hi).toFixed(1)}" y1="${yc}" y2="${yc}"/>
+      <line x1="${x(lo).toFixed(1)}" x2="${x(lo).toFixed(1)}" y1="${yc - 5}" y2="${yc + 5}"/><line x1="${x(hi).toFixed(1)}" x2="${x(hi).toFixed(1)}" y1="${yc - 5}" y2="${yc + 5}"/></g>`;
+    if (plano) s += `<line x1="${x(plano).toFixed(1)}" x2="${x(plano).toFixed(1)}" y1="${yc - 15}" y2="${yc + 15}" class="ch-plan"/><text x="${x(plano).toFixed(1)}" y="${yc - 19}" text-anchor="end" class="ch-ax">Plano ${nf(plano, 0)} Mbps</text>`;
+    s += narrow ? `<text x="${x1}" y="${yc + 30}" text-anchor="end" class="ch-val">${rot}</text>` : `<text x="${W}" y="${yc + 5}" text-anchor="end" class="ch-val">${rot}</text>`;
+  });
+  return s + '</svg>';
+}
+function chartG3(W) {
+  const R = D.diagnostico, g = R.gateway;
+  if (!g || !(g.amostras || []).length) return '';
+  const inet = (R.internet || []).filter(x => x && (x.amostras || []).length);
+  const okAll = [g, ...inet].flatMap(x => x.amostras.filter(v => v >= 0)).sort((a, b) => a - b);
+  const p99 = okAll.length ? okAll[Math.min(okAll.length - 1, Math.floor(okAll.length * .99))] : 0;
+  const yMax = Math.max(5, p99 * 1.2), tk = niceTicks(yMax, 4).filter(t => t <= yMax);
+  const wide = W >= 620 && inet.length, mw = wide ? Math.round(W * .64) : W;
+  const H = 180, ml = 42, mr = 6, mt = 10, mb = 22;
+  const n = g.amostras.length;
+  const X = i => ml + (mw - ml - mr) * (n > 1 ? i / (n - 1) : 0), Y = v => mt + (H - mt - mb) * (1 - Math.min(v, yMax) / yMax);
+  const series = (am, Xf, Yf, base) => {
+    let line = '', area = '', seg = [];
+    const flush = () => { if (seg.length) { const d = seg.map((p, k) => (k ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+      line += `<path d="${d}" class="ch-line"/>`; area += `<path d="${d} L${seg[seg.length - 1][0].toFixed(1)} ${base} L${seg[0][0].toFixed(1)} ${base} Z" class="ch-area"/>`; } seg = []; };
+    am.forEach((v, i) => { if (v < 0) flush(); else seg.push([Xf(i), Yf(v)]); });
+    flush();
+    return area + line;
+  };
+  const sparkH = wide ? (H - 18) / 2 : 74, Htot = wide ? H : H + 14 + inet.length * (sparkH + 6);
+  let s = svgOpen(W, Htot, `Latência até o roteador em ${n} amostras: média ${nf(g.media_ms, 2)} ms, máximo ${nf(g.max_ms)} ms, ${g.perdidos} perdidas.` +
+    inet.map(x => ` ${x.alvo}: média ${nf(x.media_ms)} ms, ${x.perdidos} perdidas.`).join(''));
+  tk.forEach(t => s += `<line x1="${ml}" x2="${mw - mr}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}" class="ch-grid"/><text x="${ml - 6}" y="${(Y(t) + 4).toFixed(1)}" text-anchor="end" class="ch-ax">${nf(t, 1)} ms</text>`);
+  s += series(g.amostras, X, Y, Y(0).toFixed(1));
+  g.amostras.forEach((v, i) => { if (v < 0) s += `<line x1="${X(i).toFixed(1)}" x2="${X(i).toFixed(1)}" y1="${mt}" y2="${mt + 10}" class="ch-lost"><title>Amostra ${i + 1}: perdida</title></line>`; });
+  [0, Math.floor((n - 1) / 2), n - 1].forEach(i => s += `<text x="${X(i).toFixed(1)}" y="${H - 5}" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}" class="ch-ax">${i + 1}</text>`);
+  inet.forEach((x, k) => {
+    const sx = wide ? mw + 22 : 0, sw = wide ? W - mw - 22 : W, sy = wide ? k * (sparkH + 18) : H + 14 + k * (sparkH + 6);
+    const top = sy + 16, hh = sparkH - 18, m = x.amostras.length;
+    const Xs = i => sx + sw * (m > 1 ? i / (m - 1) : 0), Ys = v => top + hh * (1 - Math.min(v, yMax) / yMax);
+    s += `<text x="${sx}" y="${sy + 11}" class="ch-ax"><tspan class="ch-lbl2">${esc(x.alvo)}</tspan> · média ${nf(x.media_ms)} ms · ${x.perdidos} perdido${x.perdidos === 1 ? '' : 's'}</text>`;
+    s += `<line x1="${sx}" x2="${sx + sw}" y1="${(top + hh).toFixed(1)}" y2="${(top + hh).toFixed(1)}" class="ch-grid"/>`;
+    s += series(x.amostras, Xs, Ys, (top + hh).toFixed(1));
+    x.amostras.forEach((v, i) => { if (v < 0) s += `<line x1="${Xs(i).toFixed(1)}" x2="${Xs(i).toFixed(1)}" y1="${top}" y2="${top + 7}" class="ch-lost"/>`; });
+  });
+  return s + `</svg><p class="ch-cap">${g.perdidos} perdido${g.perdidos === 1 ? '' : 's'} de ${n} · média ${nf(g.media_ms, 2)} ms · máx ${nf(g.max_ms)} ms${inet.length ? ` · internet na mesma escala, ${wide ? 'à direita' : 'abaixo'}` : ''}</p>`;
+}
+
+// ---- ações da página
+function bindDiag() {
+  if (STATIC) return;
+  const b = id => $(id);
+  if (b('#dg-run')) b('#dg-run').onclick = runDiagDialog;
+  if (b('#dg-cfg')) b('#dg-cfg').onclick = openConfig;
+  if (b('#dg-exp')) b('#dg-exp').onclick = exportRelatorio;
+  if (b('#dg-stop')) b('#dg-stop').onclick = stopDiag;
+}
+function updateDiagUI(force) {
+  const e = ESTADO && ESTADO.diag, card = $('#dg-prog');
+  if (!e || !card) return;
+  const show = e.rodando || e.fase === 'erro' || e.fase === 'cancelado';
+  card.hidden = !show;
+  const run = $('#dg-run'); if (run) run.disabled = !!(e.rodando || ESTADO.rodando);
+  $('#dg-stop').hidden = !e.rodando;
+  if (!show) return;
+  const steps = e.etapas || [], fi = steps.indexOf(e.fase), done = e.fase === 'concluida';
+  const sp = $('#dg-steps'), key = steps.join() + '|' + e.fase;
+  if (force || sp.dataset.k !== key) {
+    sp.dataset.k = key;
+    sp.innerHTML = steps.map((f, n) => { const [l, i] = DFASES[f] || [f, 'circle']; const c = done || n < fi ? 'done' : n === fi ? 'cur' : ''; return `<div class="step ${c}"><span class="dot">${ic(c === 'done' ? 'check' : i)}</span>${l}</div>`; }).join('');
+  }
+  const pct = e.total ? Math.min(100, e.feito / e.total * 100) : 0;
+  $('#dg-lp i').style.width = pct + '%';
+  $('#dg-tit').textContent = e.rodando ? 'Diagnóstico em andamento' : e.fase === 'erro' ? 'O diagnóstico falhou' : 'Diagnóstico interrompido';
+  $('#dg-txt').textContent = e.rodando ? `${(DFASES[e.fase] || [e.fase])[0]}${e.sub ? ' · ' + (FASE_TXT[e.sub] || e.sub) : ''} — ${pct.toFixed(0)}%`
+    : e.fase === 'erro' ? 'Erro: ' + (e.erro || '') : 'O relatório anterior foi mantido.';
+  const lg = $('#dg-log'); const atBottom = lg.scrollTop + lg.clientHeight >= lg.scrollHeight - 20;
+  lg.textContent = (e.log || []).join('\n'); if (atBottom) lg.scrollTop = lg.scrollHeight;
+}
+async function stopDiag() { try { await api('/api/diagnostico/parar', {}); snack('Interrompendo o diagnóstico…'); pollSoon(); } catch (e) { snack(e.message); } }
+async function exportRelatorio() {
+  if (DESK()) {
+    snack('Escolha onde salvar o relatório…');
+    const r = await window.pywebview.api.exportar_relatorio();
+    if (r && r.arquivo) { snack('Relatório salvo em ' + r.arquivo); window.pywebview.api.abrir_arquivo(r.arquivo); }
+    else if (r && r.erro) snack(r.erro);
+    return;
+  }
+  const a = document.createElement('a'); a.href = '/api/relatorio'; a.download = ''; document.body.appendChild(a); a.click(); a.remove();
+  snack('Baixando o relatório…');
+}
+async function runDiagDialog() {
+  let cfg = D && D.config;
+  if (!cfg) { try { cfg = await api('/api/config'); } catch (e) { cfg = {}; } }
+  const m = D && D.meta, fim = m && (m.fim || m.inicio);
+  const horas = fim ? (Date.now() - new Date(fim)) / 36e5 : Infinity;
+  const precisa = !D || horas > 24;
+  const dlg = $('#dlg');
+  dlg.innerHTML = `<form method="dialog" class="dlg-body">
+    <h2>${ic('monitor_heart')}Rodar diagnóstico</h2>
+    <p>Testa o roteador, a internet, o DNS, o MTU e a rota a partir deste computador e monta o relatório. Leva cerca de 2 minutos.</p>
+    <label class="switch"><input type="checkbox" id="dg-scan" ${precisa ? 'checked' : ''} ${D ? '' : 'disabled'}>Rodar varredura rápida antes (mais uns 2 minutos)</label>
+    <p class="hint">${!D ? 'Ainda não há varredura: a lista de equipamentos do relatório vem dela.' : `Última varredura: ${esc(fmtDate(fim))} (${esc(ago(fim))}).${horas > 24 ? ' Ela tem mais de 24 horas.' : ''}`}</p>
+    <label class="switch"><input type="checkbox" id="dg-vel" ${cfg.teste_velocidade ? 'checked' : ''}>Testar a velocidade da internet</label>
+    <p class="hint warnbox">O teste de velocidade baixa e envia cerca de 95 MB pela internet do local. Durante uns 30 segundos a internet pode ficar mais lenta para todos.</p>
+    ${cfg.plano_down_mbps ? '' : `<p class="hint">O plano contratado não foi informado: a velocidade aparece sem comparação. Informe em Configurar.</p>`}
+    <div class="dlg-acts"><button class="btn text" value="cancel">Cancelar</button><button class="btn filled" value="ok">${ic('play_arrow')}Rodar</button></div></form>`;
+  dlg.returnValue = '';
+  dlg.onclose = async () => {
+    if (dlg.returnValue !== 'ok') return;
+    const vel = $('#dg-vel').checked, scan = $('#dg-scan').checked || !D;
+    try {
+      if (vel !== !!cfg.teste_velocidade) { const c = await api('/api/config', { teste_velocidade: vel }); if (D) D.config = c; }
+      await api('/api/diagnostico', { varrer_antes: scan, rede: D && D.meta.rede });
+      snack('Diagnóstico iniciado'); pollSoon();
+    } catch (e) { snack(e.message); }
+  };
+  dlg.showModal();
+}
+async function openConfig() {
+  let c = D && D.config;
+  try { c = await api('/api/config'); } catch (e) { c = c || {}; }
+  $('#sheet').innerHTML = `
+    <div class="sh-head"><span class="avatar lg" style="--c:var(--primary)">${ic('tune', 'fill')}</span>
+      <div style="flex:1;min-width:0"><h2>Configurar diagnóstico</h2><div class="muted">Esses dados aparecem no relatório.</div></div>
+      <button class="icon-btn" id="sh-close" title="Fechar">${ic('close')}</button></div>
+    <div class="sh-body"><div class="form-grid" style="margin-top:8px">
+      <div class="field"><label for="c-local">Nome do local</label><input id="c-local" value="${esc(c.local || '')}" placeholder="Ex.: Loja Centro"></div>
+      <div class="field"><label for="c-autor">Responsável pelo relatório</label><input id="c-autor" value="${esc(c.autor || '')}" placeholder="Seu nome"></div>
+      <div class="form-row">
+        <div class="field"><label for="c-down">Plano: download (Mbps)</label><input id="c-down" type="number" min="0" step="1" value="${esc(c.plano_down_mbps ?? '')}" placeholder="Ex.: 100"></div>
+        <div class="field"><label for="c-up">Plano: upload (Mbps)</label><input id="c-up" type="number" min="0" step="1" value="${esc(c.plano_up_mbps ?? '')}" placeholder="Ex.: 50"></div>
+      </div>
+      <span class="hint">Está no contrato ou na fatura do provedor. Sem ele, a velocidade aparece sem comparação.</span>
+      <label class="switch"><input type="checkbox" id="c-vel" ${c.teste_velocidade ? 'checked' : ''}>Testar a velocidade (usa cerca de 95 MB da internet)</label>
+      <div class="field"><label for="c-dns">Servidores DNS para comparar</label><input id="c-dns" value="${esc((c.dns_extra || []).join(', '))}" placeholder="8.8.8.8, 1.1.1.1">
+        <span class="hint">Além dos que este computador já usa.</span></div>
+      <div class="field"><label for="c-pend">Informações pendentes (uma por linha)</label><textarea id="c-pend" placeholder="Ex.: Confirmar com o provedor se o link é dedicado">${esc(c.pendencias_extra || '')}</textarea></div>
+      <div><button class="btn filled" id="c-save">${ic('save')}Salvar</button></div>
+    </div></div>`;
+  $('#sheet').classList.add('open'); $('#scrim').classList.add('open');
+  $('#sh-close').onclick = closeSheet;
+  $('#c-save').onclick = async () => {
+    try {
+      const novo = await api('/api/config', { local: $('#c-local').value, autor: $('#c-autor').value, plano_down_mbps: $('#c-down').value, plano_up_mbps: $('#c-up').value,
+        teste_velocidade: $('#c-vel').checked, dns_extra: $('#c-dns').value, pendencias_extra: $('#c-pend').value });
+      if (D) D.config = novo;
+      snack('Configuração salva'); closeSheet(); await loadData(); render();
+    } catch (e) { snack('Erro ao salvar: ' + e.message); }
+  };
 }
 
 // ---------------------------------------------------------------- SHEET de detalhes
@@ -929,6 +1409,7 @@ function openSheet(k) {
         <dt>Fabricante</dt><dd>${esc(d.fabricante_full || (d.mac_privado ? 'Oculto (MAC privado — comum em celulares e notebooks)' : 'Não encontrado na base'))}</dd>
         ${d.modelo ? `<dt>Modelo</dt><dd>${esc(d.modelo)}</dd>` : ''}
         ${d.firmware ? `<dt>Firmware</dt><dd>${esc(d.firmware)}</dd>` : ''}
+        ${d.so ? `<dt>Sistema</dt><dd>${esc(d.so)}</dd>` : ''}
         <dt>Nome na rede</dt><dd>${esc(d.nome_rede || '—')}</dd>
         <dt>Responde ping</dt><dd>${d.ping ? 'sim' : 'não'}</dd>
       </dl>
@@ -968,7 +1449,7 @@ async function loadData() {
   if (STATIC) return;
   try { D = await api('/api/dados'); indexData(); } catch (e) { snack('Falha ao carregar dados: ' + e.message); }
 }
-let pollT = null, lastDataPull = 0, wasRunning = false;
+let pollT = null, lastDataPull = 0, wasRunning = false, wasDiag = false;
 function pollSoon() { clearTimeout(pollT); pollT = setTimeout(poll, 300); }
 async function poll() {
   clearTimeout(pollT);
@@ -976,17 +1457,23 @@ async function poll() {
     ESTADO = await api('/api/estado');
     updateScanUI();
     const now = Date.now();
-    if (ESTADO.rodando && now - lastDataPull > 5000 && st.page !== 'varredura') {
+    const dgRun = !!(ESTADO.diag && ESTADO.diag.rodando);
+    if (ESTADO.rodando && now - lastDataPull > 5000 && st.page !== 'varredura' && st.page !== 'diagnostico') {
       lastDataPull = now; await loadData(); if (!$('#sheet').classList.contains('open') || st.page !== 'mapa') render();
     }
     if (wasRunning && !ESTADO.rodando) {
       await loadData(); st.view.fitted = false; render();
-      snack(ESTADO.fase === 'erro' ? 'A varredura falhou: ' + ESTADO.erro : 'Varredura concluída');
+      if (!dgRun) snack(ESTADO.fase === 'erro' ? 'A varredura falhou: ' + ESTADO.erro : 'Varredura concluída');
+    }
+    if (wasDiag && !dgRun) {
+      await loadData(); render();
+      const f = ESTADO.diag.fase;
+      snack(f === 'erro' ? 'O diagnóstico falhou: ' + ESTADO.diag.erro : f === 'cancelado' ? 'Diagnóstico interrompido' : 'Diagnóstico concluído');
     }
     if (!wasRunning && ESTADO.rodando && st.page === 'varredura') render();
-    wasRunning = ESTADO.rodando;
+    wasRunning = ESTADO.rodando; wasDiag = dgRun;
   } catch (e) { }
-  pollT = setTimeout(poll, ESTADO && (ESTADO.rodando || (ESTADO.oui && ESTADO.oui.rodando)) ? 1000 : 5000);
+  pollT = setTimeout(poll, ESTADO && (ESTADO.rodando || (ESTADO.diag && ESTADO.diag.rodando) || (ESTADO.oui && ESTADO.oui.rodando)) ? 1000 : 5000);
 }
 function setQ(v) { st.q = v; $('#q').value = v; $('#q-clear').hidden = !v; }
 
@@ -1023,26 +1510,37 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeSheet();
   if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); $('#q').focus(); }
 });
-$('#sb-stop').onclick = stopScan;
+$('#sb-stop').onclick = () => (ESTADO && ESTADO.diag && ESTADO.diag.rodando) ? stopDiag() : stopScan();
 $('#btn-refresh').onclick = async () => { await loadData(); render(); snack('Dados atualizados'); };
 $('#btn-theme').onclick = () => {
   const r = document.documentElement, t = r.dataset.theme === 'light' ? 'dark' : 'light';
   r.dataset.theme = t; $('#btn-theme .msi').textContent = t === 'light' ? 'dark_mode' : 'light_mode';
   try { localStorage.setItem('inv-tema', t); } catch (e) {}
   if (st.page === 'mapa') renderMapa();
+  if (st.page === 'diagnostico') drawCharts();
 };
 window.addEventListener('pywebviewready', () => { if (st.page === 'varredura') render(); });
 window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (PAGES[h] && h !== st.page) go(h); });
 window.addEventListener('scroll', () => $('#topbar').classList.toggle('scrolled', scrollY > 4), { passive: true });
+// gráficos são desenhados na largura real do contêiner: redesenha ao redimensionar e ao imprimir
+let rsT = null;
+window.addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(() => { if (st.page === 'diagnostico' && D) drawCharts(); }, 150); });
+window.addEventListener('beforeprint', () => { if (st.page === 'diagnostico' && D) drawCharts(); });
+window.addEventListener('afterprint', () => { if (st.page === 'diagnostico' && D) drawCharts(); });
 
 // ---------------------------------------------------------------- início
 (async function init() {
   try { const t = localStorage.getItem('inv-tema'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
   $('#btn-theme .msi').textContent = document.documentElement.dataset.theme === 'light' ? 'dark_mode' : 'light_mode';
+  if (document.fonts && document.fonts.load) {
+    const t = setTimeout(() => document.documentElement.classList.add('no-icons'), 4000);
+    document.fonts.load('24px "Material Symbols Rounded"', 'home')
+      .then(f => { clearTimeout(t); document.documentElement.classList.toggle('no-icons', !f.length); }).catch(() => {});
+  }
   if (STATIC) { $$('.app-only').forEach(x => x.hidden = true); indexData(); }
   else { await loadData(); }
   const h = (location.hash || '').slice(1);
-  go(PAGES[h] ? h : 'painel');
+  go(PAGES[h] ? h : (D && PAGES[D.pagina] ? D.pagina : 'painel'));
   if (!STATIC) poll();
 })();
 </script>

@@ -19,11 +19,13 @@ import os
 import shutil
 import subprocess
 import threading
+import unicodedata
 import urllib.request
 import webbrowser
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import diagnostico as Dg
 import identificar as I
 import varredura as V
 
@@ -33,6 +35,7 @@ APP_HTML = os.path.join(BASE, "app.html")
 OUI_URL = "https://standards-oui.ieee.org/oui/oui.csv"
 _lock = threading.Lock()
 _scan_thread = None
+_diag_thread = None
 _oui_job = {"rodando": False, "msg": ""}
 
 
@@ -54,7 +57,8 @@ def partial_result():
         hosts.append({"ip": h, "mac": st.get("macs", {}).get(h), "hostname": None, "netbios": None,
                       "ping": h in st.get("pinged", []),
                       "servicos": [{"port": p, "pend": True} for p in sorted(st.get("abertas", {}).get(h, []))],
-                      **({"descoberta": st["descoberta"][h]} if h in st.get("descoberta", {}) else {})})
+                      **({"descoberta": st["descoberta"][h]} if h in st.get("descoberta", {}) else {}),
+                      **({"aceita_tudo": True} if h in st.get("aceita_tudo", []) else {})})
     return {"rede": st.get("rede", ""), "inicio": st.get("inicio"), "fim": None,
             "portas_varridas": st.get("portas", ""), "hosts": hosts}
 
@@ -123,6 +127,8 @@ def start_scan(rede, portas, conc, timeout):
     with _lock:
         if V.STATE.get("rodando"):
             raise RuntimeError("Já existe uma varredura em andamento.")
+        if Dg.STATE.get("rodando"):
+            raise RuntimeError("O diagnóstico está rodando. Espere terminar para iniciar uma varredura.")
         V.reset_state(str(net), portas)
         args = argparse.Namespace(rede=str(net), portas=portas, saida=RESULT, conc=max(100, min(int(conc), 6000)),
                                   timeout=max(0.2, min(float(timeout), 3.0)), hosts="")
@@ -139,6 +145,71 @@ def start_scan(rede, portas, conc, timeout):
                 V.STATE["rodando"] = False
         _scan_thread = threading.Thread(target=run, daemon=True)
         _scan_thread.start()
+
+
+def start_diag(body):
+    """Inicia o diagnóstico numa thread. Com varrer_antes (ou sem varredura salva), roda antes uma
+    varredura rápida das portas comuns (VERIFY_PORTS, cerca de 2 minutos numa /24)."""
+    global _diag_thread
+    with _lock:
+        if V.STATE.get("rodando"):
+            raise RuntimeError("Há uma varredura em andamento. Espere terminar para rodar o diagnóstico.")
+        if Dg.STATE.get("rodando"):
+            raise RuntimeError("O diagnóstico já está rodando.")
+        ultima = last_result()
+        rede = body.get("rede") or (ultima or {}).get("rede")
+        if not rede:
+            nets = local_networks()
+            rede = nets[0]["rede"] if nets else ""
+        net = ipaddress.ip_network(rede, strict=False)
+        if net.prefixlen < 16:
+            raise ValueError("Rede muito grande: use no máximo /16.")
+        varrer = bool(body.get("varrer_antes")) or not ultima or ultima.get("rede") != str(net)
+        cfg = Dg.load_config()
+        Dg.reset_state(Dg.etapas(cfg, varrer))
+        Dg.CANCEL.clear()
+
+        def run():
+            try:
+                if varrer:
+                    Dg.log("Varredura rápida das portas mais comuns antes dos testes (cerca de 2 minutos)")
+                    portas = ",".join(map(str, V.VERIFY_PORTS))
+                    V.reset_state(str(net), portas)
+                    args = argparse.Namespace(rede=str(net), portas=portas, saida=RESULT, conc=2000, timeout=0.6, hosts="")
+                    try:
+                        asyncio.run(V.main(args))
+                        if V.STATE.get("resultado"):
+                            I.register_scan(V.STATE["resultado"])
+                    finally:
+                        V.STATE["rodando"] = False
+                if Dg.CANCEL.is_set():
+                    Dg.STATE.update(fase="cancelado")
+                    Dg.log("Diagnóstico interrompido")
+                else:
+                    Dg.executar(str(net), cfg, preparado=True)
+            except Exception as e:
+                Dg.STATE.update(erro=str(e), fase="erro")
+                Dg.log(f"Erro: {e}")
+            finally:
+                Dg.STATE["rodando"] = False
+        _diag_thread = threading.Thread(target=run, daemon=True)
+        _diag_thread.start()
+
+
+def diag_estado():
+    e = Dg.estado()
+    if e["fase"] == "varredura" and V.STATE.get("rodando"):  # varredura rápida antes dos testes
+        e.update(feito=V.STATE.get("feito", 0), total=V.STATE.get("total", 0), sub=V.STATE.get("fase"),
+                 fase_inicio=V.STATE.get("fase_inicio"), log=V.STATE.get("log", [])[-40:])
+    return e
+
+
+def nome_relatorio(p):
+    cfg = p.get("config") or {}
+    base = cfg.get("local") or (p.get("meta") or {}).get("rede") or "rede"
+    base = unicodedata.normalize("NFKD", base).encode("ascii", "ignore").decode()
+    base = re.sub(r"[^\w]+", "-", base).strip("-").lower() or "rede"
+    return f"diagnostico-{base}-{datetime.now():%Y-%m-%d}.html"
 
 
 def update_oui():
@@ -197,9 +268,22 @@ class H(BaseHTTPRequestHandler):
                     "inicio": st.get("inicio"), "fase_inicio": st.get("fase_inicio"),
                     "agora": datetime.now().timestamp(), "erro": st.get("erro"),
                     "log": st.get("log", [])[-40:], "oui": dict(_oui_job, existe=os.path.exists(I.OUI_CSV)),
-                    "modo": MODO, "versao": VERSAO, "dados": I.DADOS})
+                    "modo": MODO, "versao": VERSAO, "dados": I.DADOS, "diag": diag_estado()})
             if path == "/api/redes":
                 return self.send(200, local_networks())
+            if path == "/api/diagnostico/estado":
+                return self.send(200, diag_estado())
+            if path == "/api/config":
+                return self.send(200, Dg.load_config())
+            if path == "/api/relatorio":
+                p = payload()
+                if not p:
+                    return self.send(404, {"erro": "Nenhuma varredura disponível."})
+                html = I.render_static(p, pagina="diagnostico").encode("utf-8")
+                with open(os.path.join(I.DADOS, "ultimo-diagnostico.html"), "wb") as f:
+                    f.write(html)
+                return self.send(200, html, "text/html; charset=utf-8",
+                                 {"Content-Disposition": f'attachment; filename="{nome_relatorio(p)}"'})
             if path == "/api/exportar":
                 p = payload()
                 if not p:
@@ -236,9 +320,21 @@ class H(BaseHTTPRequestHandler):
             if path == "/api/oui":
                 update_oui()
                 return self.send(200, {"ok": True})
+            if path == "/api/diagnostico":
+                start_diag(body)
+                return self.send(200, {"ok": True})
+            if path == "/api/diagnostico/parar":
+                Dg.CANCEL.set()
+                if Dg.STATE.get("fase") == "varredura":
+                    V.CANCEL.set()
+                Dg.log("Interrompendo…")
+                return self.send(200, {"ok": True})
+            if path == "/api/config":
+                return self.send(200, Dg.save_config(body))
             if path == "/api/encerrar":
                 self.send(200, {"ok": True})
                 V.CANCEL.set()
+                Dg.CANCEL.set()
                 SAIR.set()
                 return
             return self.send(404, {"erro": "não encontrado"})
@@ -249,7 +345,7 @@ class H(BaseHTTPRequestHandler):
 
 
 # ------------------------------------------------------------------ janela desktop
-VERSAO = "1.1.0"
+VERSAO = "1.2.0"
 TITULO = "Inventário de Rede — Make Distribuidora"
 MODO = "servidor"
 WINDOW = None
@@ -296,6 +392,23 @@ class Api:
             dest += ".html"
         with open(dest, "w", encoding="utf-8") as f:
             f.write(I.render_static(p))
+        return {"arquivo": dest}
+
+    def exportar_relatorio(self):
+        import webview
+        p = payload()
+        if not p:
+            return {"erro": "Nenhuma varredura disponível."}
+        kind = getattr(getattr(webview, "FileDialog", None), "SAVE", None) or webview.SAVE_DIALOG
+        res = WINDOW.create_file_dialog(kind, directory=os.path.join(os.path.expanduser("~"), "Documents"),
+                                        save_filename=nome_relatorio(p), file_types=("Página HTML (*.html)",))
+        if not res:
+            return {"cancelado": True}
+        dest = res if isinstance(res, str) else res[0]
+        if not dest.lower().endswith(".html"):
+            dest += ".html"
+        with open(dest, "w", encoding="utf-8") as f:
+            f.write(I.render_static(p, pagina="diagnostico"))
         return {"arquivo": dest}
 
     def abrir_arquivo(self, path):
@@ -348,14 +461,18 @@ def main():
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     print(f"Servidor em {url}")
 
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
     if a.sem_navegador:
         try:
-            srv.serve_forever()
+            while not SAIR.wait(1):
+                pass
         except KeyboardInterrupt:
             pass
+        print("Encerrado")
+        srv.shutdown()
+        srv.server_close()
         return
 
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
     if not a.navegador:
         try:
             import webview
@@ -369,14 +486,15 @@ def main():
                                            background_color="#141D16", text_select=True)
 
             def ao_fechar():
-                """Com varredura em andamento, pergunta antes de fechar (o progresso seria perdido)."""
-                if not V.STATE.get("rodando"):
+                """Com varredura ou diagnóstico em andamento, pergunta antes de fechar (o progresso seria perdido)."""
+                if not V.STATE.get("rodando") and not Dg.STATE.get("rodando"):
                     return True
-                st = V.STATE
+                st = V.STATE if V.STATE.get("rodando") else Dg.STATE
+                oque = "uma varredura" if st is V.STATE else "um diagnóstico"
                 pct = st.get("feito", 0) * 100 / max(st.get("total", 0), 1)
                 r = ctypes.windll.user32.MessageBoxW(
-                    None, f"Há uma varredura em andamento ({pct:.0f}% da fase atual).\n\n"
-                          "Se fechar agora, a varredura será interrompida e o progresso perdido.\n\n"
+                    None, f"Há {oque} em andamento ({pct:.0f}% da fase atual).\n\n"
+                          "Se fechar agora, ele será interrompido e o progresso perdido.\n\n"
                           "Fechar mesmo assim?", TITULO,
                     0x04 | 0x30 | 0x100 | 0x10000 | 0x40000)  # SIM/NÃO, alerta, padrão=Não, primeiro plano
                 return r == 6  # IDYES; False cancela o fechamento
@@ -385,6 +503,7 @@ def main():
                           storage_path=os.path.join(I.DADOS, "webview"))
             print("Janela fechada — encerrando")
             V.CANCEL.set()
+            Dg.CANCEL.set()
             srv.shutdown()
             return
         except Exception as e:

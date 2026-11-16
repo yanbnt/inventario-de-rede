@@ -5,12 +5,14 @@ Normalmente é usado pelo app.py (interface gráfica).
 """
 import argparse
 import asyncio
+import ctypes
 import html
 import ipaddress
 import json
 import re
 import socket
 import ssl
+import struct
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -19,11 +21,19 @@ from datetime import datetime
 VERIFY_PORTS = [20, 21, 22, 23, 25, 53, 79, 80, 81, 88, 110, 111, 135, 139, 143, 161, 389, 443, 445, 465, 515,
                 548, 554, 587, 631, 636, 800, 808, 873, 993, 995, 1433, 1521, 1723, 1883, 2049, 3000, 3050, 3306,
                 3389, 4443, 5000, 5060, 5061, 5432, 5672, 5900, 5985, 6379, 7000, 7070, 8000, 8001, 8008, 8009,
-                8080, 8081, 8291, 8443, 8554, 8728, 8888, 9000, 9100, 9443, 10000, 27017, 34567, 37777, 62078]
+                8080, 8081, 8291, 8443, 8554, 8728, 8888, 9000, 9009, 9100, 9443, 10000, 27017, 34567, 37777, 62078]
 DISCOVERY_PORTS = [21, 22, 23, 53, 80, 135, 139, 443, 445, 515, 554, 631, 3389,
                    5060, 8000, 8080, 8443, 9100, 37777]
 # Portas de impressão "raw": qualquer dado enviado é impresso. Nunca enviar payload.
 NO_PAYLOAD_PORTS = set(range(9100, 9110)) | {515, 2501}
+# Conexões simultâneas por equipamento. Impressoras e câmeras perdem portas quando recebem uma rajada
+# (as Ricoh deixavam de mostrar a 445). Quem não responde nada (firewall descartando) pode receber mais.
+HOST_CONC = 8
+HOST_CONC_MUDO = 32
+# Portas que nenhum serviço usa. Se um equipamento "aceita" as duas, ele aceita conexão em qualquer porta
+# (as impressoras Ricoh fazem isso e depois bloqueiam por alguns segundos): a lista de portas dele não vale,
+# só as que responderem a um protocolo de verdade na identificação.
+CANARY_PORTS = (47391, 61917)
 
 
 import threading
@@ -88,31 +98,100 @@ async def ping(ip, sem):
             return False
 
 
-async def tcp_open(ip, port, timeout):
+async def tcp_try(ip, port, timeout):
+    """'open', 'closed' (recusou: RST) ou 'timeout' (nenhuma resposta)."""
     try:
         _, w = await asyncio.wait_for(asyncio.open_connection(ip, port), timeout)
+    except asyncio.TimeoutError:
+        return "timeout"
     except Exception:
-        return False
+        return "closed"
     try:
         w.close()
     except Exception:
         pass
-    return True
+    return "open"
+
+
+async def tcp_open(ip, port, timeout):
+    return await tcp_try(ip, port, timeout) == "open"
+
+
+class Portao:
+    """Limita as conexões simultâneas por equipamento. Um equipamento que só deixa as tentativas
+    esgotarem o tempo (firewall descartando, típico de Windows) não está sobrecarregado: ganha mais vagas."""
+
+    def __init__(self):
+        self.sem, self.recusas, self.mudas, self.liberados = {}, {}, {}, set()
+
+    def __call__(self, ip):
+        s = self.sem.get(ip)
+        if s is None:
+            s = self.sem[ip] = asyncio.Semaphore(HOST_CONC)
+        return s
+
+    def anota(self, ip, r):
+        if r == "timeout":
+            self.mudas[ip] = self.mudas.get(ip, 0) + 1
+        elif r == "closed":
+            self.recusas[ip] = self.recusas.get(ip, 0) + 1
+        if ip not in self.liberados and self.mudas.get(ip, 0) >= 48 and not self.recusas.get(ip):
+            self.liberados.add(ip)
+            for _ in range(HOST_CONC_MUDO - HOST_CONC):
+                self.sem[ip].release()
+
+    async def tentar(self, ip, port, timeout):
+        async with self(ip):
+            r = await tcp_try(ip, port, timeout)
+        self.anota(ip, r)
+        return r
 
 
 def read_arp(net):
-    out = subprocess.run(["arp", "-a"], capture_output=True, creationflags=NOWIN).stdout.decode("cp850", "replace")
+    """Tabela de vizinhos do Windows (IP -> MAC). Ignora entradas 'Unreachable'/'Incomplete': o `arp -a`
+    mostrava equipamentos que já tinham saído da rede e eles eram contados como online."""
+    try:
+        ps = ("Get-NetNeighbor -AddressFamily IPv4 -ErrorAction Stop | Where-Object { $_.State -notin "
+              "'Unreachable','Incomplete' } | Select-Object IPAddress,LinkLayerAddress | ConvertTo-Json -Compress")
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, timeout=25,
+                             creationflags=NOWIN)
+        if out.returncode != 0:
+            raise OSError(out.stderr[:200])
+        txt = out.stdout.decode("utf-8", "replace").strip()
+        data = json.loads(txt) if txt else []
+        pares = [(x.get("IPAddress"), x.get("LinkLayerAddress") or "") for x in (data if isinstance(data, list) else [data])]
+    except Exception:  # sem PowerShell/NetTCPIP: volta ao arp -a
+        out = subprocess.run(["arp", "-a"], capture_output=True, creationflags=NOWIN).stdout.decode("cp850", "replace")
+        pares = re.findall(r"(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F]{2}(?:-[0-9a-fA-F]{2}){5})", out)
     macs = {}
-    for ip, mac in re.findall(r"(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F]{2}(?:-[0-9a-fA-F]{2}){5})", out):
-        mac = mac.lower()
-        if mac == "ff-ff-ff-ff-ff-ff" or mac.startswith("01-00-5e"):
+    for ip, mac in pares:
+        mac = (mac or "").lower()
+        if not re.fullmatch(r"[0-9a-f]{2}(-[0-9a-f]{2}){5}", mac) or mac in ("ff-ff-ff-ff-ff-ff", "00-00-00-00-00-00") \
+                or mac.startswith("01-00-5e"):
             continue
         try:
-            if ipaddress.ip_address(ip) in net:
+            a = ipaddress.ip_address(ip)
+            if a in net and a not in (net.network_address, net.broadcast_address):
                 macs[ip] = mac.replace("-", ":").upper()
         except ValueError:
             pass
     return macs
+
+
+def send_arp(ip):
+    """Pergunta 'quem tem este IP?' agora (iphlpapi.SendARP, não exige administrador).
+    Devolve o MAC se o equipamento respondeu, None se não respondeu, True se não dá para testar."""
+    if NOWIN == 0:
+        return True
+    try:
+        dst = struct.unpack("<I", socket.inet_aton(ip))[0]
+        buf = (ctypes.c_ubyte * 8)()
+        ln = ctypes.c_ulong(8)
+        if ctypes.windll.iphlpapi.SendARP(dst, 0, buf, ctypes.byref(ln)) == 0 and ln.value >= 6:
+            return ":".join(f"{b:02X}" for b in buf[:6])
+        return None
+    except Exception:
+        return True
 
 
 async def nbtstat(ip, sem):
@@ -205,10 +284,10 @@ def parse_http(data):
         if m:
             info["location"] = m.group(1)[:200]
     # pistas de fabricante no corpo
-    m = re.search(r"(Hikvision|Dahua|Intelbras|MikroTik|RouterOS|UniFi|Ubiquiti|TP-Link|Huawei|ZTE|Fortinet|FortiGate|pfSense|OPNsense|Sophos|"
+    m = re.search(r"\b(Hikvision|Dahua|Intelbras|MikroTik|RouterOS|UniFi|Ubiquiti|TP-Link|Huawei|ZTE|Fortinet|FortiGate|pfSense|OPNsense|Sophos|"
                   r"Grandstream|Yealink|Synology|QNAP|Proxmox|VMware|ESXi|iDRAC|iLO|Zabbix|Grafana|GLPI|Epson|Brother|Kyocera|Ricoh|"
                   r"Lexmark|Xerox|Canon|Samsung|HP LaserJet|HP Color|OfficeJet|Aruba|Cisco|Juniper|D-Link|Mercusys|Tenda|Ruijie|"
-                  r"Elsys|Furukawa|Datacom|Control iD|ControlID|Henry|Topdata|Hikcentral|Ezviz|Jellyfin|Plex|Portainer)", text, re.I)
+                  r"Elsys|Furukawa|Datacom|Control iD|ControlID|Henry|Topdata|Hikcentral|Ezviz|Jellyfin|Plex|Portainer)\b", text, re.I)
     if m:
         info["hint"] = m.group(1)
     return info
@@ -371,7 +450,7 @@ async def main(a):
     log(f"Rede {net} — {len(all_ips)} endereços")
 
     # 1) descoberta: ping + portas comuns + tabela ARP
-    set_fase("descoberta", len(all_ips) * (1 + len(DISCOVERY_PORTS)))
+    set_fase("descoberta", len(all_ips) * (1 + len(DISCOVERY_PORTS) + len(CANARY_PORTS)))
     sem = asyncio.Semaphore(64)
 
     async def ping_c(ip):
@@ -389,15 +468,37 @@ async def main(a):
     STATE["pinged"] = sorted(pinged)
     log(f"Responderam ao ping: {len(pinged)}")
     sem2 = asyncio.Semaphore(1500)
+    gate = Portao()
 
     async def disc(ip, port):
         async with sem2:
-            ok = await tcp_open(ip, port, 0.8)
+            ok = await gate.tentar(ip, port, 0.8) == "open"
             STATE["feito"] += 1
             return (ip, port) if ok else None
-    tcp_hits = [x for x in await asyncio.gather(*(disc(ip, p) for ip in all_ips for p in DISCOVERY_PORTS)) if x]
-    tcp_alive = {ip for ip, _ in tcp_hits}
+    # as portas-isca vão primeiro (o equipamento que bloqueia depois de algumas conexões ainda responde a elas);
+    # ordem porta -> IP: espalha as tentativas em vez de despejar todas as portas no mesmo equipamento
+    todos = [x for x in await asyncio.gather(*(disc(ip, p) for p in CANARY_PORTS + tuple(DISCOVERY_PORTS)
+                                               for ip in all_ips)) if x]
+    iscas = {}
+    for ip, p in todos:
+        if p in CANARY_PORTS:
+            iscas[ip] = iscas.get(ip, 0) + 1
+    aceita_tudo = {ip for ip, n in iscas.items() if n == len(CANARY_PORTS)}
+    STATE["aceita_tudo"] = sorted(aceita_tudo)
+    if aceita_tudo:
+        log("Aceitam conexão em qualquer porta (só valem as portas que responderem): " + ", ".join(sorted(aceita_tudo)))
+    tcp_hits = [(ip, p) for ip, p in todos if p not in CANARY_PORTS]
+    tcp_alive = {ip for ip, _ in todos}
     macs = read_arp(net)
+    # quem apareceu só na tabela ARP precisa responder a um ARP agora (a entrada pode ser antiga)
+    so_arp = sorted(set(macs) - pinged - tcp_alive - set(descoberta))
+    if so_arp:
+        resp = await asyncio.gather(*(asyncio.to_thread(send_arp, ip) for ip in so_arp))
+        sumiram = [ip for ip, r in zip(so_arp, resp) if r is None]
+        for ip in sumiram:
+            macs.pop(ip, None)
+        log(f"Só na tabela ARP: {len(so_arp)}, confirmados agora: {len(so_arp) - len(sumiram)}"
+            + (f" (fora da rede: {', '.join(sumiram)})" if sumiram else ""))
     for ip, info in descoberta.items():
         macs.setdefault(ip, info["mac"])
     hosts = sorted(pinged | tcp_alive | set(macs) | set(descoberta), key=lambda s: ipaddress.ip_address(s))
@@ -429,7 +530,7 @@ async def main(a):
         for h, p in it:
             if CANCEL.is_set():
                 return
-            if await tcp_open(h, p, a.timeout) and p not in open_ports[h]:
+            if await gate.tentar(h, p, a.timeout) == "open" and p not in open_ports[h]:
                 open_ports[h].append(p)
             STATE["feito"] += 1
 
@@ -452,10 +553,13 @@ async def main(a):
 
         async def verify(h, p):
             async with vsem:
-                if p not in open_ports[h] and await tcp_open(h, p, 1.5):
-                    open_ports[h].append(p)
+                if p not in open_ports[h] and not CANCEL.is_set():
+                    for _ in range(2):  # 2 tentativas: equipamento ocupado pode perder a primeira
+                        if await gate.tentar(h, p, 1.5) == "open":
+                            open_ports[h].append(p)
+                            break
                 STATE["feito"] += 1
-        await asyncio.gather(*(verify(h, p) for h in hosts for p in common))
+        await asyncio.gather(*(verify(h, p) for p in common for h in hosts))
         extra = sum(map(len, open_ports.values())) - antes
         if extra:
             log(f"Reconferência das portas comuns: +{extra} portas")
@@ -508,6 +612,7 @@ async def main(a):
             "ip": h, "mac": macs.get(h), "hostname": n if n and n != h else None,
             "netbios": b, "ping": h in pinged, "servicos": by_host[h],
             **({"descoberta": descoberta[h]} if h in descoberta else {}),
+            **({"aceita_tudo": True} if h in aceita_tudo else {}),
         } for h, n, b in zip(hosts, names, nb)],
     }
     with open(a.saida, "w", encoding="utf-8") as f:

@@ -12,7 +12,7 @@ import ipaddress
 import re
 import socket
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import shutil
 import sys
@@ -147,7 +147,7 @@ TEXT_RULES = [  # títulos de página, banners, servidores
      r"httpd_ac|wom|\bap\b \d+|mesh", "roteador", 4, "interface de equipamento de rede"),
     (r"pabx|\bpbx\b|grandstream|yealink|fanvil|asterisk|issabel|elastix|freepbx|voip|\bsip\b|impacta|unniti", "voip", 5, "interface de telefonia"),
     (r"smart ?tv|tizen|webos|android tv|chromecast|roku|dlna|kodi|plex|jellyfin", "tv", 4, "serviço de TV/mídia"),
-    (r"synology|qnap|proxmox|vmware|esxi|idrac|ilo\b|truenas|unraid|zabbix|grafana|glpi|portainer|"
+    (r"synology|qnap|proxmox|vmware|esxi|idrac|\bilo\b|truenas|unraid|zabbix|grafana|glpi|portainer|"
      r"microsoft-iis|sql server|veeam|nextcloud", "servidor", 4, "serviço típico de servidor"),
     (r"openssh_for_windows|microsoft", "computador", 1, "serviço Windows"),
 ]
@@ -256,6 +256,23 @@ def host_model(h):
     return None
 
 
+def macos_sinal(h, vend, private):
+    """Evidência de que o equipamento é um Mac (ou None)."""
+    ports = {s["port"] for s in h["servicos"]}
+    name = h.get("netbios") or h.get("hostname") or ""
+    apple = bool(vend and re.search(r"\bapple\b", vend, re.I))
+    if re.search(r"\.local$|^MAC-|^MacBook|^iMac|^Mac-?mini|^Mac-?Pro", name, re.I):
+        return f"nome típico de Mac na rede ({name})"
+    if private or apple:
+        for combo in ({88, 5900}, {7000, 5000}):
+            if combo <= ports:
+                return f"serviços típicos do macOS ({', '.join(map(str, sorted(combo)))})"
+    if any(re.search(r"AirTunes|AirPlay", str(x.get("server", ""))) for x in h["servicos"]) and (private or apple) \
+            and not ports & {8001, 8002, 9197}:
+        return "serviço AirPlay do macOS"
+    return None
+
+
 def classify_device(h, vend, private, gw):
     """Retorna (categoria, confiança, evidências)."""
     ports = {s["port"] for s in h["servicos"]}
@@ -317,8 +334,12 @@ def classify_device(h, vend, private, gw):
     if re.search(r"iphone|ipad|galaxy|android|redmi|moto[ -]", name, re.I):
         add("celular", 4, f"nome de celular ({name})")
 
+    mac_os = macos_sinal(h, vend, private) if h["ip"] != gw else None
+    if mac_os:
+        add("computador", 8, mac_os + " — computador Mac")
+
     # computador com cara de servidor (Windows + serviços web/BD ou muitas portas)
-    if score.get("computador", 0) and (ports & {80, 443, 8443, 1433, 3306, 5432} or len(ports) > 25):
+    if not mac_os and score.get("computador", 0) and (ports & {80, 443, 8443, 1433, 3306, 5432} or len(ports) > 25):
         add("servidor", score["computador"] + 1 - score.get("servidor", 0), "Windows publicando serviços (web/BD) — provável servidor")
 
     if not score:
@@ -491,6 +512,9 @@ def register_scan(d, inv=None):
             del ips[:-5]
         if h.get("netbios") or h.get("hostname"):
             e["nome_rede"] = h.get("netbios") or h.get("hostname")
+        portas = sorted({x["port"] for x in h.get("servicos", [])})
+        if portas:
+            e["portas"] = portas[:40]
     inv["varreduras"].append(marca)
     del inv["varreduras"][:-50]
     save_inv(inv)
@@ -522,7 +546,16 @@ def build_payload(d, inv=None, parcial=False):
         seen.add(k)
         e = inv["dispositivos"].get(k, {})
         vend, private = vendor(h.get("mac"))
+        nota = None
+        if h.get("aceita_tudo"):  # aceita qualquer porta: só vale o que respondeu a um protocolo
+            reais = [s for s in h["servicos"] if s.get("banner") or s.get("proto") in ("http", "https", "tls", "rtsp")
+                     or s.get("pend")]
+            nota = (f"aceita conexão em qualquer porta TCP (proteção do equipamento): das {len(h['servicos'])} portas "
+                    f"que pareciam abertas, ficaram as {len(reais)} que responderam a um protocolo")
+            h = dict(h, servicos=reais)
         cat_auto, conf, ev = classify_device(h, vend, private, gw)
+        if nota:
+            ev.append(nota)
         cat = e.get("categoria") or cat_auto
         model = host_model(h)
         nome_rede = h.get("netbios") or (h.get("hostname") or "").removesuffix(".local") or ""
@@ -545,6 +578,8 @@ def build_payload(d, inv=None, parcial=False):
             "fabricante_full": vend or "", "mac_privado": private,
             "nome": e.get("nome") or auto_nome, "nome_auto": auto_nome, "nome_rede": nome_rede, "modelo": model or "",
             "firmware": (h.get("descoberta") or {}).get("firmware", ""),
+            "so": "macOS" if h["ip"] != gw and macos_sinal(h, vend, private) else "",
+            "aceita_tudo": bool(h.get("aceita_tudo")),
             "cat": cat, "cat_auto": cat_auto, "manual": bool(e.get("categoria")), "confianca": conf, "evidencias": ev,
             "tag": "gateway" if h["ip"] == gw else ("este computador" if h["ip"] == my_ip else ""),
             "online": True, "ping": h.get("ping"), "notas": e.get("notas", ""),
@@ -554,11 +589,31 @@ def build_payload(d, inv=None, parcial=False):
         })
     # dispositivos do inventário que não apareceram nesta varredura
     if not parcial:
-        for k, e in inv["dispositivos"].items():
-            if k in seen or not e.get("ultimo"):
-                continue
+        try:
+            ref = datetime.fromisoformat(d.get("fim") or d["inicio"])
+        except Exception:
+            ref = datetime.now()
+        # celulares com MAC aleatório trocam de endereço: cada troca vira um registro novo que nunca expira.
+        # Esconde (sem apagar do inventário) os antigos sem nada que o usuário tenha editado.
+        nomes_vistos = {x["nome_rede"].upper() for x in devices if x["mac_privado"] and x["nome_rede"]}
+        antigos = sorted(((k, e) for k, e in inv["dispositivos"].items() if k not in seen and e.get("ultimo")),
+                         key=lambda ke: ke[1]["ultimo"], reverse=True)
+        for k, e in antigos:
             mac = k if not k.startswith("IP:") else ""
             vend, private = vendor(mac)
+            editado = e.get("nome") or e.get("categoria") or e.get("notas")
+            if private and not editado:
+                nr = (e.get("nome_rede") or "").upper()
+                if nr and nr in nomes_vistos:
+                    continue  # mesmo aparelho, outro MAC aleatório
+                if nr:
+                    nomes_vistos.add(nr)
+                try:
+                    velho = ref - datetime.fromisoformat(e["ultimo"]) > timedelta(days=7)
+                except Exception:
+                    velho = False
+                if velho and not nr and not e.get("portas"):
+                    continue
             fake = {"ip": e.get("ip", ""), "mac": mac, "servicos": [], "netbios": e.get("nome_rede")}
             cat_auto, conf, ev = classify_device(fake, vend, private, None)
             devices.append({
@@ -577,15 +632,27 @@ def build_payload(d, inv=None, parcial=False):
             "duracao": f"{max(1, int((fim - ini).total_seconds() // 60))} min",
             "portas": d.get("portas_varridas", ""), "gw": gw, "eu": my_ip, "parcial": parcial,
             "oui": bool(_OUI) or load_oui() > 0, "gerado": datetime.now().strftime("%d/%m/%Y %H:%M")}
-    return {"meta": meta,
-            "devCats": [{"id": k, "nome": v[0], "icone": v[1]} for k, v in DEV_CATS.items()],
-            "svcCats": [{"id": a, "nome": b, "icone": c} for a, b, c in SVC_CATS],
-            "dispositivos": devices, "servicos": servs}
+    p = {"meta": meta,
+         "devCats": [{"id": k, "nome": v[0], "icone": v[1]} for k, v in DEV_CATS.items()],
+         "svcCats": [{"id": a, "nome": b, "icone": c} for a, b, c in SVC_CATS],
+         "dispositivos": devices, "servicos": servs}
+    try:
+        import diagnostico  # importado aqui: diagnostico.py também usa este módulo
+        p["config"] = diagnostico.load_config()
+        p["diagnostico"] = diagnostico.relatorio(p, d)
+    except Exception as e:  # o inventário continua funcionando mesmo se o diagnóstico falhar
+        print("diagnóstico indisponível:", repr(e))
+        p.setdefault("config", {})
+        p["diagnostico"] = None
+    return p
 
 
-def render_static(payload, template=os.path.join(BASE, "app.html")):
+def render_static(payload, template=os.path.join(BASE, "app.html"), pagina=None):
+    """HTML único com os dados embutidos. `pagina` = página que abre primeiro (ex.: 'diagnostico')."""
     with open(template, encoding="utf-8") as f:
         tpl = f.read()
+    if pagina:
+        payload = dict(payload, pagina=pagina)
     data_js = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
     return tpl.replace("/*__DADOS__*/null", data_js)
 
