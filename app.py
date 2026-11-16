@@ -347,7 +347,7 @@ class H(BaseHTTPRequestHandler):
 
 
 # ------------------------------------------------------------------ janela desktop
-VERSAO = "2.0.0"
+VERSAO = "2.0.1"
 TITULO = "Scanner de Rede"
 MODO = "servidor"
 WINDOW = None
@@ -355,15 +355,38 @@ SAIR = threading.Event()  # sinalizado pelo botão "Encerrar" (modo navegador)
 
 
 def open_target(target):
-    """Abre URL/arquivo no programa padrão do Windows (navegador, VLC, PuTTY, mstsc...)."""
-    try:
-        if target.startswith(("http://", "https://")):
+    """Abre URL/arquivo no programa padrão do Windows (navegador, VLC, PuTTY, mstsc...).
+    As chamadas da janela (pywebview) chegam numa thread separada, sem COM: o ShellExecute pode falhar em
+    silêncio ali, e o navegador pode abrir atrás da janela. Por isso: COM na thread, permissão para o programa
+    aberto vir para a frente, conferência do resultado e, se falhar, uma segunda forma de abrir."""
+    if os.name != "nt":
+        try:
             webbrowser.open(target)
-        else:
-            os.startfile(target)
-        return True
-    except Exception as e:
-        return str(e)
+            return True
+        except Exception as e:
+            return str(e)
+    ole32, user32, shell32 = ctypes.windll.ole32, ctypes.windll.user32, ctypes.windll.shell32
+    com = ole32.CoInitializeEx(None, 0x2 | 0x4)  # STA + sem DDE (recomendado pela documentação do ShellExecute)
+    try:
+        user32.AllowSetForegroundWindow(-1)        # ASFW_ANY: o navegador pode vir para a frente
+        shell32.ShellExecuteW.restype = ctypes.c_void_p
+        r = shell32.ShellExecuteW(None, "open", target, None, None, 1) or 0
+        if r > 32:
+            print(f"Abrindo {target}: ok")
+            return True
+        print(f"Abrindo {target}: ShellExecute devolveu {r}; tentando de outra forma")
+        try:
+            if target.startswith(("http://", "https://")):
+                subprocess.Popen(["rundll32", "url.dll,FileProtocolHandler", target], creationflags=I.NOWIN)
+            else:
+                os.startfile(target)
+            return True
+        except Exception as e:
+            print(f"Abrindo {target}: falhou ({e})")
+            return str(e)
+    finally:
+        if com in (0, 1):
+            ole32.CoUninitialize()
 
 
 class Api:

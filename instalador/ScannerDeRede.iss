@@ -12,7 +12,7 @@
 #endif
 
 #define AppName      "Scanner de Rede"
-#define AppVersion   "2.0.0"
+#define AppVersion   "2.0.1"
 #define AppExe       "ScannerDeRede.exe"
 ; instalação da versão antiga (1.x, "Inventário de Rede"): é removida antes de instalar esta
 ; (nos testes: ISCC /DAppIdAntigo="{...}_is1" aponta para uma instalação falsa e não mexe na real)

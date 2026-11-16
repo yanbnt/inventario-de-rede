@@ -1,5 +1,5 @@
 ﻿SCANNER DE REDE
-Versão 2.0.0
+Versão 2.0.1
 
 O que este programa faz
 -----------------------

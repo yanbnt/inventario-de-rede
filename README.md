@@ -41,8 +41,8 @@ Baixe na página de [Releases](../../releases/latest) e execute. Cada instalador
 
 | Versão | Tamanho | Quando usar |
 |---|---|---|
-| **`Instalador-ScannerDeRede-2.0.0-offline.exe`** | ≈218 MB | Instala **sem internet**: traz o Microsoft WebView2 completo |
-| **`Instalador-ScannerDeRede-2.0.0-online.exe`** | ≈14 MB | Download leve: se a máquina não tiver WebView2, baixa da Microsoft |
+| **`Instalador-ScannerDeRede-2.0.1-offline.exe`** | ≈218 MB | Instala **sem internet**: traz o Microsoft WebView2 completo |
+| **`Instalador-ScannerDeRede-2.0.1-online.exe`** | ≈14 MB | Download leve: se a máquina não tiver WebView2, baixa da Microsoft |
 
 Na dúvida, use a **offline**. No Windows 11 e na maioria dos Windows 10 o WebView2 já existe, e as duas funcionam igual.
 Requisitos: Windows 10 ou 11, 64 bits.
@@ -50,7 +50,7 @@ Requisitos: Windows 10 ou 11, 64 bits.
 - Instala em `C:\Program Files\Scanner de Rede` (ou só para o usuário, se escolher no início).
 - Dados (inventário, histórico, varreduras, diagnóstico): `%LOCALAPPDATA%\ScannerDeRede\dados`. Faça cópia dessa pasta para guardar.
 - Se a versão anterior (**Inventário de Rede 1.x**) estiver instalada, o instalador a remove e o programa traz o inventário dela na primeira vez que abrir.
-- Instalação silenciosa (TI): `Instalador-ScannerDeRede-2.0.0-offline.exe /VERYSILENT /SUPPRESSMSGBOXES`
+- Instalação silenciosa (TI): `Instalador-ScannerDeRede-2.0.1-offline.exe /VERYSILENT /SUPPRESSMSGBOXES`
 
 ## Uso responsável
 

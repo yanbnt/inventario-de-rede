@@ -190,9 +190,12 @@ a.pc:hover, button.pc:hover { border-color: var(--accent); color: var(--accent-i
 .wd-main { flex: 1; min-width: 0; }
 .wd-main .win-tabs { padding: 0; background: none; }
 .pane { border: 1px solid var(--border); border-top: 0; padding: 12px 10px 6px; background: var(--win); min-height: 250px; }
-.wd-btns { display: flex; flex-direction: column; gap: 5px; width: 122px; flex: none; }
+.wd-btns { display: flex; flex-direction: column; gap: 5px; width: 150px; flex: none; }
 .wd-btns .b { justify-content: flex-start; width: 100%; }
 .wd-btns hr { border: 0; border-top: 1px solid var(--border-2); margin: 3px 0; }
+.wd-btns .b.web { font-family: Consolas, "Cascadia Mono", monospace; font-size: 11.5px; padding: 0 6px; gap: 5px; }
+.wd-btns .b.web span { overflow: hidden; text-overflow: ellipsis; }
+.wd-lbl { font-size: 11px; color: var(--text-3); margin: 2px 0 -1px 2px; }
 .wd-st { min-height: 24px; border-top: 1px solid var(--border-2); background: var(--tool); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 12px; color: var(--text-2); flex: none; flex-wrap: wrap; }
 .evid { margin: 0; padding: 0 0 0 4px; list-style: none; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; }
 .evid li { display: flex; gap: 6px; align-items: flex-start; }
@@ -561,7 +564,7 @@ const PAGES = {
   painel: ['Painel', 'grid', renderPainel], mapa: ['Mapa da rede', 'graph', renderMapa], dispositivos: ['Dispositivos', 'table', renderDispositivos],
   servicos: ['Serviços', 'plug', renderServicos], diagnostico: ['Diagnóstico', 'activity', renderDiagnostico], varredura: ['Varredura', 'radar', renderVarredura],
 };
-function chrome() {
+function montarMoldura() {
   $('#logo-top').innerHTML = LOGO(22);
   $('#btn-menu').innerHTML = ic('menu');
   $('#find-ico').innerHTML = ic('search');
@@ -1415,7 +1418,10 @@ function openItem(k, paneInicial = 'geral') {
       <tr><td>Classificação automática</td><td>${esc(ca.nome)} · <span class="conf ${d.confianca}"><i></i>confiança ${d.confianca}</span></td></tr></tbody></table>
       <p style="margin:12px 0 6px;font-weight:600">Por que essa categoria</p><ul class="evid">${d.evidencias.map(x => `<li>${ic('chevronR')}<span>${esc(x)}</span></li>`).join('')}</ul>`;
   const hist = ro('Primeira vez', fmtDate(d.primeiro)) + ro('Última vez', fmtDate(d.ultimo)) + ro('IPs usados', (d.ips || []).join(', ') || d.ip, 1) + ro('Responde ping', d.ping ? 'sim' : 'não');
-  const web = webLinks(d)[0], rdp = d.svcs.find(s => s.rdp);
+  const webs = webLinks(d), rdp = d.svcs.find(s => s.rdp);
+  // um botão por interface web, com o IP e a porta exatos que serão abertos
+  const webBtns = webs.slice(0, 6).map(s => `<a class="b web" href="${esc(s.url)}" target="_blank" rel="noopener" title="Abrir ${esc(s.url)}">${ic('external')}<span>${esc(s.ip)}:${s.port}</span></a>`).join('')
+    + (webs.length > 6 ? `<button class="b" type="button" data-vertodos>+${webs.length - 6} na aba Serviços</button>` : '');
   const panes = [['geral', 'Geral', geral],
     ['servicos', `Serviços (${d.svcs.length})`, svcRows ? `<div style="margin:-12px -10px -6px;overflow:auto"><table class="t"><thead><tr><th class="num">Porta</th><th>Serviço</th><th>Tipo</th><th>Detalhes</th><th></th></tr></thead><tbody>${svcRows}</tbody></table></div>` : '<p class="muted">Nenhuma porta TCP aberta encontrada.</p>'],
     ['ident', 'Identificação', ident], ['hist', 'Histórico', hist]];
@@ -1427,7 +1433,7 @@ function openItem(k, paneInicial = 'geral') {
     <div class="wd-btns">
       ${STATIC ? `<button class="b pri" data-close type="button">Fechar</button>` : `<button class="b pri" id="e-ok" type="button">${ic('check')}OK</button><button class="b" data-close type="button">Cancelar</button><button class="b" id="e-apl" type="button">Aplicar</button>`}
       <hr>
-      ${web ? `<a class="b" href="${esc(web.url)}" target="_blank" rel="noopener">${ic('external')}Abrir web</a>` : ''}
+      ${webBtns ? `<div class="wd-lbl">Interfaces web</div>${webBtns}` : ''}
       ${rdp ? `<button class="b" data-rdp="${esc(rdp.rdp)}" type="button">${ic('monitor')}Abrir RDP</button>` : ''}
       <button class="b" data-copy="${esc(d.ip)}" type="button">${ic('copy')}Copiar IP</button>
       ${d.mac ? `<button class="b" data-copy="${esc(d.mac)}" type="button">${ic('copy')}Copiar MAC</button>` : ''}
@@ -1435,6 +1441,7 @@ function openItem(k, paneInicial = 'geral') {
     <footer class="wd-st"><span class="dot" style="--c:${d.online ? 'var(--ok)' : 'var(--text-3)'}"></span>${d.online ? 'online' : 'não visto nesta varredura (' + esc(ago(d.ultimo)) + ')'}
       ${d.novo ? '<span class="tag new">NOVO</span>' : ''}${d.tag ? `<span class="tag">${esc(d.tag)}</span>` : ''}<span class="grow"></span><span class="muted">${esc(d.fabricante || '')}</span></footer></div>`);
   dlg.onclose = () => { if (st.page === 'mapa') $$('#map .node.sel').forEach(n => n.classList.remove('sel')); };
+  const vt = dlg.querySelector('[data-vertodos]'); if (vt) vt.onclick = () => dlg.querySelector('.tab[data-pane="servicos"]').click();
   const salvar = async fechar => {
     try {
       await api('/api/dispositivo', { chave: d.chave, nome: $('#e-nome').value, categoria: $('#e-cat').value, notas: $('#e-notas').value });
@@ -1489,7 +1496,10 @@ document.addEventListener('click', e => {
   const href = a.getAttribute('href');
   if (/^(https?|rtsp|ftp|ssh|telnet|vnc|file):/i.test(href)) {
     e.preventDefault();
-    window.pywebview.api.abrir(href).then(ok => { if (ok !== true) { snack('Não há programa para abrir ' + href.split(':')[0].toUpperCase() + ': endereço copiado'); copy(href); } });
+    snack('Abrindo ' + href + (/^https?:/i.test(href) ? ' no navegador…' : '…'));
+    window.pywebview.api.abrir(href)
+      .then(ok => { if (ok !== true) { snack('Não foi possível abrir ' + href + ': endereço copiado'); copy(href); } })
+      .catch(() => { snack('Não foi possível abrir ' + href + ': endereço copiado'); copy(href); });
   }
 });
 async function exportDesk() {
@@ -1532,7 +1542,7 @@ window.addEventListener('afterprint', () => { if (st.page === 'diagnostico' && D
 // ---------------------------------------------------------------- início
 (async function init() {
   try { const t = localStorage.getItem('scanner-tema'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
-  chrome();
+  montarMoldura();
   $('#stb-ico').innerHTML = ic('checkCircle');
   if (STATIC) { $$('.app-only').forEach(x => x.hidden = true); indexData(); }
   else { await loadData(); }

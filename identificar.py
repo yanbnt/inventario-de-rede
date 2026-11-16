@@ -380,11 +380,11 @@ def banner_service(b):
 
 
 def build_url(scheme, ip, port):
-    defaults = {"http": 80, "https": 443, "ftp": 21, "ssh": 22}
+    # sempre com a porta, mesmo 80/443: o endereço aberto é exatamente o IP e a porta do serviço encontrado
     if scheme in ("http", "https", "ftp"):
-        return f"{scheme}://{ip}/" if port == defaults[scheme] else f"{scheme}://{ip}:{port}/"
+        return f"{scheme}://{ip}:{port}/"
     if scheme == "ssh":
-        return f"ssh://{ip}" if port == 22 else f"ssh://{ip}:{port}"
+        return f"ssh://{ip}:{port}"
     if scheme in ("telnet", "vnc"):
         return f"{scheme}://{ip}:{port}"
     if scheme == "rtsp":
