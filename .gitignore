@@ -11,6 +11,7 @@ instalador/dist/
 instalador/saida/
 instalador/redist/
 Instalador-InventarioRede-*.exe
+Instalador-ScannerDeRede-*.exe
 *.spec.bak
 
 # --- Python / editores ---

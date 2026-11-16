@@ -20,11 +20,20 @@ import sys
 FROZEN = getattr(sys, "frozen", False)
 # recursos somente leitura (no executável ficam dentro do pacote do PyInstaller)
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-# dados do usuário: instalado -> %LOCALAPPDATA%\InventarioRede\dados ; desenvolvimento -> ./dados
-if os.environ.get("INVENTARIO_DADOS"):
-    DADOS = os.environ["INVENTARIO_DADOS"]
+# dados do usuário: instalado -> %LOCALAPPDATA%\ScannerDeRede\dados ; desenvolvimento -> ./dados
+# (SCANNER_DADOS ou INVENTARIO_DADOS no ambiente trocam a pasta; usado nos testes)
+_LOCAL = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+if os.environ.get("SCANNER_DADOS") or os.environ.get("INVENTARIO_DADOS"):
+    DADOS = os.environ.get("SCANNER_DADOS") or os.environ["INVENTARIO_DADOS"]
 elif FROZEN:
-    DADOS = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "InventarioRede", "dados")
+    DADOS = os.path.join(_LOCAL, "ScannerDeRede", "dados")
+    # versões 1.x se chamavam "Inventário de Rede": traz o inventário, as varreduras e a configuração
+    _ANTIGO = os.path.join(_LOCAL, "InventarioRede", "dados")
+    if not os.path.isdir(DADOS) and os.path.isdir(_ANTIGO):
+        try:
+            shutil.copytree(_ANTIGO, DADOS, ignore=shutil.ignore_patterns("webview", "*.log", "*.tmp", "*.download"))
+        except OSError:
+            pass
 else:
     DADOS = os.path.join(BASE, "dados")
 OUI_CSV = os.path.join(DADOS, "oui.csv")
@@ -38,32 +47,32 @@ NOWIN = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW: não abre cons
 # ------------------------------------------------------------------ categorias
 # id: (rótulo, ícone Material Symbols, categoria de serviço web)
 DEV_CATS = {
-    "roteador":     ("Rede & Wi-Fi", "router", "rede"),
-    "camera":       ("Câmeras & CFTV", "videocam", "cftv"),
-    "acesso":       ("Acesso & Alarmes", "face", "acesso"),
-    "impressora":   ("Impressoras", "print", "impressao"),
-    "servidor":     ("Servidores", "dns", "web"),
-    "computador":   ("Computadores", "computer", "web"),
-    "celular":      ("Celulares & Tablets", "smartphone", "web"),
-    "tv":           ("TVs & Mídia", "tv", "web"),
-    "iot":          ("IoT & Automação", "sensors", "web"),
-    "voip":         ("Telefonia / VoIP", "call", "voip"),
-    "desconhecido": ("Não identificados", "device_unknown", "web"),
+    "roteador":     ("Rede e Wi-Fi", "router", "rede"),
+    "camera":       ("Câmeras e CFTV", "video", "cftv"),
+    "acesso":       ("Acesso e alarmes", "shield", "acesso"),
+    "impressora":   ("Impressoras", "printer", "impressao"),
+    "servidor":     ("Servidores", "server", "web"),
+    "computador":   ("Computadores", "monitor", "web"),
+    "celular":      ("Celulares e tablets", "smartphone", "web"),
+    "tv":           ("TVs e mídia", "tv", "web"),
+    "iot":          ("IoT e automação", "cpu", "web"),
+    "voip":         ("Telefonia IP", "phone", "voip"),
+    "desconhecido": ("Não identificados", "help", "web"),
 }
 
 SVC_CATS = [
-    ("rede", "Rede & Infraestrutura", "router"),
-    ("cftv", "Câmeras & CFTV", "videocam"),
-    ("acesso", "Controle de Acesso", "face"),
-    ("impressao", "Impressão", "print"),
-    ("web", "Aplicações Web", "language"),
-    ("remoto", "Acesso Remoto", "terminal"),
-    ("arquivos", "Arquivos & Compartilhamentos", "folder_shared"),
-    ("banco", "Bancos de Dados", "database"),
-    ("voip", "Telefonia / VoIP", "call"),
+    ("rede", "Rede e infraestrutura", "network"),
+    ("cftv", "Câmeras e CFTV", "video"),
+    ("acesso", "Controle de acesso", "shield"),
+    ("impressao", "Impressão", "printer"),
+    ("web", "Aplicações web", "globe"),
+    ("remoto", "Acesso remoto", "terminal"),
+    ("arquivos", "Arquivos e compartilhamentos", "folder"),
+    ("banco", "Bancos de dados", "database"),
+    ("voip", "Telefonia IP", "phone"),
     ("email", "E-mail", "mail"),
-    ("sistema", "Serviços de Sistema", "settings"),
-    ("outros", "Outros", "help"),
+    ("sistema", "Serviços de sistema", "cog"),
+    ("outros", "Outros", "box"),
 ]
 
 # porta -> (nome, categoria, esquema de link)

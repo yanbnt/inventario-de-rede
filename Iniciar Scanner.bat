@@ -1,5 +1,5 @@
 @echo off
-title Inventario de Rede - Make Distribuidora
+title Scanner de Rede
 cd /d "%~dp0"
 python app.py
 if errorlevel 1 (

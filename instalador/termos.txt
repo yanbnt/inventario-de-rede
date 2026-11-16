@@ -1,5 +1,5 @@
-﻿INVENTÁRIO DE REDE — MAKE DISTRIBUIDORA
-Versão 1.2.0
+﻿SCANNER DE REDE
+Versão 2.0.0
 
 O que este programa faz
 -----------------------
@@ -25,7 +25,9 @@ Privacidade
   - botão "Atualizar base" de fabricantes: baixa a lista pública do IEEE (standards-oui.ieee.org);
   - diagnóstico: pings e consultas DNS para 8.8.8.8 e 1.1.1.1 e, se ligado, o teste de velocidade
     em speed.cloudflare.com (baixa e envia cerca de 95 MB de dados aleatórios; pode ser desligado).
-• Os dados ficam em: %LOCALAPPDATA%\InventarioRede\dados
+• Os dados ficam em: %LOCALAPPDATA%\ScannerDeRede\dados
+• Se o "Inventário de Rede" (versão anterior) estiver instalado, ele é removido e o inventário
+  dele é trazido automaticamente na primeira vez que o Scanner de Rede abrir.
 
 Requisitos
 ----------

@@ -1,7 +1,6 @@
-"""Gera ícone e imagens do assistente de instalação (identidade Make Distribuidora)."""
+"""Gera o ícone e as imagens do assistente de instalação do Scanner de Rede."""
 import math
 import os
-import random
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -9,12 +8,13 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(AQUI, "assets")
 os.makedirs(OUT, exist_ok=True)
 
-LIMA, MEDIO, ESCURO, BRANCO = (203, 245, 66), (50, 103, 58), (25, 36, 27), (255, 255, 255)
+AZUL, AZUL_ESCURO, AZUL_FUNDO = (37, 99, 235), (30, 58, 138), (23, 37, 84)
+BRANCO, CINZA_CLARO = (255, 255, 255), (191, 207, 238)
 FONTS = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
 
 
 def font(size, bold=True):
-    for name in (("segoeuib.ttf", "arialbd.ttf") if bold else ("segoeui.ttf", "arial.ttf")):
+    for name in (("segoeuisb.ttf", "segoeuib.ttf", "arialbd.ttf") if bold else ("segoeui.ttf", "arial.ttf")):
         try:
             return ImageFont.truetype(os.path.join(FONTS, name), size)
         except OSError:
@@ -22,62 +22,64 @@ def font(size, bold=True):
     return ImageFont.load_default()
 
 
+def radar(d, cx, cy, r, cor, lw, alfa_aneis=(120, 255)):
+    """Dois anéis, o ponteiro e um alvo: a mesma marca do app.html."""
+    for k, a in zip((1.0, 0.5), alfa_aneis):
+        rr = r * k
+        d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], outline=cor + (a,), width=lw)
+    ang = math.radians(-45)
+    d.line([(cx, cy), (cx + r * math.cos(ang), cy + r * math.sin(ang))], fill=cor + (255,), width=lw)
+    rc = lw * 1.1
+    d.ellipse([cx - rc, cy - rc, cx + rc, cy + rc], fill=cor + (255,))
+    a2 = math.radians(40)
+    bx, by, rb = cx + r * 0.76 * math.cos(a2), cy + r * 0.76 * math.sin(a2), lw * 1.15
+    d.ellipse([bx - rb, by - rb, bx + rb, by + rb], fill=cor + (255,))
+
+
 def logo(size):
-    """Quadrado arredondado verde-lima com um 'hub' de rede estilizado."""
-    S = size * 4  # desenha em alta e reduz (antialias)
+    """Quadrado arredondado azul com a marca de radar em branco."""
+    S = size * 4  # desenha grande e reduz (antialias)
     im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    d.rounded_rectangle([0, 0, S - 1, S - 1], radius=int(S * 0.24), fill=LIMA)
-    c = S / 2
-    r_out = S * 0.30
-    pts = [(c + r_out * math.cos(a), c + r_out * math.sin(a)) for a in [(-90 + i * 72) * math.pi / 180 for i in range(5)]]
-    lw = max(2, int(S * 0.045))
-    for x, y in pts:
-        d.line([(c, c), (x, y)], fill=ESCURO, width=lw)
-    for x, y in pts:
-        rr = S * 0.075
-        d.ellipse([x - rr, y - rr, x + rr, y + rr], fill=ESCURO)
-    rc = S * 0.13
-    d.ellipse([c - rc, c - rc, c + rc, c + rc], fill=ESCURO)
-    rc2 = S * 0.06
-    d.ellipse([c - rc2, c - rc2, c + rc2, c + rc2], fill=LIMA)
+    d.rounded_rectangle([0, 0, S - 1, S - 1], radius=int(S * 0.24), fill=AZUL + (255,))
+    radar(d, S / 2, S / 2, S * 0.30, BRANCO, max(2, int(S * 0.05)))
     return im.resize((size, size), Image.LANCZOS)
 
 
-def network_bg(w, h, seed=7, density=26):
-    """Fundo verde-escuro com uma malha de nós (lembra o mapa da rede)."""
-    im = Image.new("RGB", (w, h), ESCURO)
-    d = ImageDraw.Draw(im)
-    rnd = random.Random(seed)
-    nodes = [(rnd.uniform(0, w), rnd.uniform(0, h)) for _ in range(density)]
-    for i, (x, y) in enumerate(nodes):
-        for x2, y2 in nodes[i + 1:]:
-            if math.hypot(x - x2, y - y2) < w * 0.45:
-                d.line([(x, y), (x2, y2)], fill=(40, 62, 44), width=max(1, w // 160))
-    for x, y in nodes:
-        r = rnd.choice([2, 3, 4]) * w / 164
-        d.ellipse([x - r, y - r, x + r, y + r], fill=rnd.choice([MEDIO, (60, 90, 64), LIMA if rnd.random() < .2 else MEDIO]))
-    return im
+def fundo(w, h):
+    """Degradê azul com anéis de radar bem discretos no canto."""
+    im = Image.new("RGB", (w, h), AZUL_FUNDO)
+    px = im.load()
+    for y in range(h):
+        t = y / max(1, h - 1)
+        c = tuple(int(AZUL_ESCURO[i] * (1 - t) + AZUL_FUNDO[i] * t) for i in range(3))
+        for x in range(w):
+            px[x, y] = c
+    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(ov)
+    cx, cy = w * 1.0, h * 0.86
+    for k in range(1, 7):
+        r = w * 0.22 * k
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(255, 255, 255, 22), width=max(1, w // 150))
+    return Image.alpha_composite(im.convert("RGBA"), ov).convert("RGB")
 
 
 def wizard_large(scale):
     w, h = 164 * scale, 314 * scale
-    im = network_bg(w, h, seed=3, density=22)
+    im = fundo(w, h)
     d = ImageDraw.Draw(im)
-    lg = logo(int(64 * scale))
-    im.paste(lg, (int(20 * scale), int(26 * scale)), lg)
-    d.text((20 * scale, 106 * scale), "Inventário", font=font(int(21 * scale)), fill=BRANCO)
-    d.text((20 * scale, 131 * scale), "de Rede", font=font(int(21 * scale)), fill=BRANCO)
-    d.rounded_rectangle([20 * scale, 162 * scale, 52 * scale, 165 * scale], radius=2 * scale, fill=LIMA)
-    d.text((20 * scale, 174 * scale), "Identifica e mapeia\ntodos os dispositivos\nda rede.", font=font(int(10.5 * scale), False),
-           fill=(200, 214, 198), spacing=int(3 * scale))
-    d.text((20 * scale, h - 34 * scale), "MAKE DISTRIBUIDORA", font=font(int(8.5 * scale)), fill=LIMA)
+    lg = logo(int(56 * scale))
+    im.paste(lg, (int(20 * scale), int(28 * scale)), lg)
+    d.text((20 * scale, 102 * scale), "Scanner", font=font(int(22 * scale)), fill=BRANCO)
+    d.text((20 * scale, 128 * scale), "de Rede", font=font(int(22 * scale)), fill=BRANCO)
+    d.text((20 * scale, 166 * scale), "Inventário, mapa e\ndiagnóstico da rede\nlocal.", font=font(int(10.5 * scale), False),
+           fill=CINZA_CLARO, spacing=int(4 * scale))
     return im
 
 
 def wizard_small(size):
     im = Image.new("RGB", (size, size), BRANCO)
-    lg = logo(int(size * 0.86))
+    lg = logo(int(size * 0.84))
     o = (size - lg.width) // 2
     im.paste(lg, (o, o), lg)
     return im

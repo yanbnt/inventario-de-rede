@@ -1,6 +1,6 @@
-﻿# Gera os dois instaladores do Inventário de Rede:
-#   Instalador-InventarioRede-<versão>-online.exe   (~14 MB)  baixa o WebView2 da Microsoft se faltar
-#   Instalador-InventarioRede-<versão>-offline.exe  (~220 MB) traz o WebView2 completo, instala sem internet
+﻿# Gera os dois instaladores do Scanner de Rede:
+#   Instalador-ScannerDeRede-<versão>-online.exe   (~14 MB)  baixa o WebView2 da Microsoft se faltar
+#   Instalador-ScannerDeRede-<versão>-offline.exe  (~220 MB) traz o WebView2 completo, instala sem internet
 #
 #   powershell -ExecutionPolicy Bypass -File instalador\build.ps1
 # Requisitos (só na máquina que gera o instalador): Python 3.12+, Inno Setup 6
@@ -27,7 +27,7 @@ Baixar "https://go.microsoft.com/fwlink/p/?LinkId=2124703" "$aqui\redist\Microso
 Baixar "https://go.microsoft.com/fwlink/?linkid=2124701"   "$aqui\redist\MicrosoftEdgeWebView2RuntimeInstallerX64.exe" # completo x64 (~200 MB)
 
 Write-Host "3/4  Empacotando o programa com Python embutido (PyInstaller)..." -ForegroundColor Cyan
-python -m PyInstaller --noconfirm --clean --distpath "$aqui\dist" --workpath "$aqui\build" "$aqui\InventarioRede.spec"
+python -m PyInstaller --noconfirm --clean --distpath "$aqui\dist" --workpath "$aqui\build" "$aqui\ScannerDeRede.spec"
 
 Write-Host "4/4  Compilando os instaladores gráficos (Inno Setup)..." -ForegroundColor Cyan
 $iscc = @("$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe", "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") |
@@ -37,13 +37,13 @@ foreach ($edicao in @(@{ Nome = "online"; Args = @() }, @{ Nome = "offline"; Arg
     Write-Host "     versão $($edicao.Nome)..."
     # o antivírus às vezes trava o .exe enquanto o Inno grava o ícone: tenta de novo
     for ($i = 1; $i -le 4; $i++) {
-        & $iscc /Q @($edicao.Args) "$aqui\InventarioRede.iss"
+        & $iscc /Q @($edicao.Args) "$aqui\ScannerDeRede.iss"
         if ($LASTEXITCODE -eq 0) { break }
         Start-Sleep 6
     }
     if ($LASTEXITCODE -ne 0) { throw "Falha ao compilar a versão $($edicao.Nome)" }
 }
 
-Get-ChildItem "$raiz\Instalador-InventarioRede-*.exe" | ForEach-Object {
+Get-ChildItem "$raiz\Instalador-ScannerDeRede-*.exe" | ForEach-Object {
     Write-Host ("Pronto: {0}  ({1:N1} MB)" -f $_.Name, ($_.Length / 1MB)) -ForegroundColor Green
 }

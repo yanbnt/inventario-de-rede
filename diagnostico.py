@@ -37,7 +37,7 @@ DOMINIOS_DNS = ["google.com", "microsoft.com", "intelbras.com.br", "cloudflare.c
 VEL_HOST = "speed.cloudflare.com"
 VEL_DOWN_BYTES, VEL_DOWN_RODADAS = 25_000_000, 3
 VEL_UP_BYTES, VEL_UP_RODADAS = 10_000_000, 2
-UA = "Mozilla/5.0 (inventario-rede)"
+UA = "Mozilla/5.0 (scanner-de-rede)"
 
 FASES = [("varredura", "Varredura rápida"), ("adaptador", "Placa de rede"), ("gateway", "Roteador"),
          ("internet", "Internet"), ("dns", "DNS"), ("mtu", "MTU"), ("rota", "Rota"), ("velocidade", "Velocidade")]

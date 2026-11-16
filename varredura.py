@@ -294,7 +294,7 @@ def parse_http(data):
 
 
 def http_req(ip, port):
-    return (f"GET / HTTP/1.1\r\nHost: {ip}:{port}\r\nUser-Agent: Mozilla/5.0 (inventario-rede)\r\n"
+    return (f"GET / HTTP/1.1\r\nHost: {ip}:{port}\r\nUser-Agent: Mozilla/5.0 (scanner-de-rede)\r\n"
             f"Accept: text/html,*/*\r\nConnection: close\r\n\r\n").encode()
 
 

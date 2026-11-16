@@ -1,5 +1,5 @@
-# PyInstaller — gera dist\InventarioRede\InventarioRede.exe com Python e todas as bibliotecas embutidas.
-# Uso: pyinstaller --noconfirm instalador\InventarioRede.spec   (ou rode instalador\build.ps1)
+# PyInstaller — gera dist\ScannerDeRede\ScannerDeRede.exe com Python e todas as bibliotecas embutidas.
+# Uso: pyinstaller --noconfirm instalador\ScannerDeRede.spec   (ou rode instalador\build.ps1)
 import os
 
 import webview
@@ -33,10 +33,10 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
-    name="InventarioRede",
+    name="ScannerDeRede",
     icon=os.path.join(ASSETS, "icone.ico"),
     version=os.path.join(SPECPATH, "versao.txt"),
     console=False,          # programa de janela: sem console
     upx=False,
 )
-coll = COLLECT(exe, a.binaries, a.datas, name="InventarioRede", upx=False)
+coll = COLLECT(exe, a.binaries, a.datas, name="ScannerDeRede", upx=False)

@@ -1,5 +1,5 @@
 """
-Inventário de Rede — Make Distribuidora
+Scanner de Rede
 
 Programa desktop: um servidor local (somente 127.0.0.1) + janela nativa (WebView2) com a interface.
 
@@ -70,7 +70,9 @@ def payload():
     if not d:
         return None
     inv = I.register_scan(d)
-    return I.build_payload(d, inv)
+    p = I.build_payload(d, inv)
+    p["meta"]["versao"] = VERSAO
+    return p
 
 
 # adaptadores que não são a rede física da empresa (Hyper-V, WSL, Docker, VMs, VPNs…)
@@ -220,7 +222,7 @@ def update_oui():
         _oui_job.update(rodando=True, msg="Baixando base de fabricantes do IEEE…")
         tmp = I.OUI_CSV + ".download"
         try:
-            req = urllib.request.Request(OUI_URL, headers={"User-Agent": "Mozilla/5.0 (inventario-rede)"})
+            req = urllib.request.Request(OUI_URL, headers={"User-Agent": "Mozilla/5.0 (scanner-de-rede)"})
             with urllib.request.urlopen(req, timeout=120) as r, open(tmp, "wb") as f:
                 shutil.copyfileobj(r, f)
             os.replace(tmp, I.OUI_CSV)
@@ -345,8 +347,8 @@ class H(BaseHTTPRequestHandler):
 
 
 # ------------------------------------------------------------------ janela desktop
-VERSAO = "1.2.0"
-TITULO = "Inventário de Rede — Make Distribuidora"
+VERSAO = "2.0.0"
+TITULO = "Scanner de Rede"
 MODO = "servidor"
 WINDOW = None
 SAIR = threading.Event()  # sinalizado pelo botão "Encerrar" (modo navegador)
@@ -423,14 +425,14 @@ def single_instance():
     if os.name != "nt":
         return True
     k32, u32 = ctypes.windll.kernel32, ctypes.windll.user32
-    single_instance.h = k32.CreateMutexW(None, False, "Local\\InventarioRedeMakeDistribuidora")
+    single_instance.h = k32.CreateMutexW(None, False, "Local\\ScannerDeRede")
     if k32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
         hwnd = u32.FindWindowW(None, TITULO)
         if hwnd:
             u32.ShowWindow(hwnd, 9)  # SW_RESTORE
             u32.SetForegroundWindow(hwnd)
         else:
-            u32.MessageBoxW(None, "O Inventário de Rede já está aberto.", TITULO, 0x40)
+            u32.MessageBoxW(None, "O Scanner de Rede já está aberto.", TITULO, 0x40)
         return False
     return True
 
@@ -443,7 +445,7 @@ def setup_logging():
             sys.stdout = sys.stderr = log
         except Exception:
             pass
-    print(f"--- {datetime.now():%d/%m/%Y %H:%M:%S} Inventário de Rede {VERSAO} — dados em {I.DADOS}")
+    print(f"--- {datetime.now():%d/%m/%Y %H:%M:%S} Scanner de Rede {VERSAO} — dados em {I.DADOS}")
 
 
 def main():
@@ -519,7 +521,7 @@ def main():
             if os.name == "nt":
                 ctypes.windll.user32.MessageBoxW(
                     None, "Não foi possível abrir a janela própria (componente Microsoft WebView2 ausente).\n\n"
-                          "O Inventário de Rede vai abrir no seu navegador. Para encerrar, use o botão "
+                          "O Scanner de Rede vai abrir no seu navegador. Para encerrar, use o botão "
                           "“Encerrar” no menu lateral.", TITULO, 0x30)
     MODO = "navegador"
     webbrowser.open(url)

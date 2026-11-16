@@ -1,7 +1,7 @@
-﻿; Instalador gráfico do Inventário de Rede — Make Distribuidora
+﻿; Instalador gráfico do Scanner de Rede
 ; Compilar: instalador\build.ps1  (gera as duas versões)
-;   versão online  (~14 MB):  ISCC.exe instalador\InventarioRede.iss
-;   versão offline (~220 MB): ISCC.exe /DOFFLINE instalador\InventarioRede.iss
+;   versão online  (~14 MB):  ISCC.exe instalador\ScannerDeRede.iss
+;   versão offline (~220 MB): ISCC.exe /DOFFLINE instalador\ScannerDeRede.iss
 
 #ifdef OFFLINE
   #define Edicao  "offline"
@@ -11,27 +11,27 @@
   #define WV2File "MicrosoftEdgeWebview2Setup.exe"
 #endif
 
-#define AppName      "Inventário de Rede"
-#define AppVersion   "1.2.0"
-#define AppPublisher "Make Distribuidora"
-#define AppURL       "https://makedistribuidora.com.br"
-#define AppExe       "InventarioRede.exe"
+#define AppName      "Scanner de Rede"
+#define AppVersion   "2.0.0"
+#define AppExe       "ScannerDeRede.exe"
+; instalação da versão antiga (1.x, "Inventário de Rede"): é removida antes de instalar esta
+; (nos testes: ISCC /DAppIdAntigo="{...}_is1" aponta para uma instalação falsa e não mexe na real)
+#ifndef AppIdAntigo
+  #define AppIdAntigo  "{6E4C2B1A-7D3F-4F8E-9B52-1A0C9E7D4F21}_is1"
+#endif
 ; usado só dentro de [Code] (string Pascal): chave simples, sem o escape "{{" das outras seções
 #define WebView2Guid "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 [Setup]
-AppId={{6E4C2B1A-7D3F-4F8E-9B52-1A0C9E7D4F21}
+AppId={{0294B704-AC73-4980-9952-A3C0E3AA3B0F}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
-AppPublisher={#AppPublisher}
-AppPublisherURL={#AppURL}
-AppSupportURL={#AppURL}
-AppCopyright=© 2026 {#AppPublisher}
+AppPublisher={#AppName}
 VersionInfoVersion={#AppVersion}
-VersionInfoCompany={#AppPublisher}
 VersionInfoDescription=Instalador do {#AppName}
-DefaultDirName={autopf}\Inventario de Rede
+VersionInfoProductName={#AppName}
+DefaultDirName={autopf}\Scanner de Rede
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
@@ -47,10 +47,10 @@ SetupIconFile=assets\icone.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 InfoBeforeFile=termos.txt
-AppMutex=Local\InventarioRedeMakeDistribuidora
+AppMutex=Local\ScannerDeRede,Local\InventarioRedeMakeDistribuidora
 CloseApplications=yes
 OutputDir=..
-OutputBaseFilename=Instalador-InventarioRede-{#AppVersion}-{#Edicao}
+OutputBaseFilename=Instalador-ScannerDeRede-{#AppVersion}-{#Edicao}
 Compression=lzma2/ultra64
 SolidCompression=yes
 ShowLanguageDialog=no
@@ -74,7 +74,7 @@ ptbr.AskDeleteData=Deseja apagar também o inventário, o histórico e as varred
 Name: "desktopicon"; Description: "{cm:TaskDesktop}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "dist\InventarioRede\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\ScannerDeRede\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "termos.txt"; DestDir: "{app}"; DestName: "LEIA-ME.txt"; Flags: ignoreversion
 ; WebView2 — offline: instalador completo (~200 MB, sem internet); online: bootstrapper (~2 MB, baixa da Microsoft).
 ; Só é extraído e executado se a máquina não tiver o componente.
@@ -82,7 +82,7 @@ Source: "redist\{#WV2File}"; DestDir: "{tmp}"; Flags: deleteafterinstall nocompr
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; Comment: "Identifica e mapeia os dispositivos da rede"
-Name: "{autoprograms}\{#AppName} (no navegador)"; Filename: "{app}\{#AppExe}"; Parameters: "--navegador"; Comment: "Abre o Inventário de Rede no navegador"
+Name: "{autoprograms}\{#AppName} (no navegador)"; Filename: "{app}\{#AppExe}"; Parameters: "--navegador"; Comment: "Abre o Scanner de Rede no navegador"
 Name: "{autoprograms}\Desinstalar {#AppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon; Comment: "Identifica e mapeia os dispositivos da rede"
 
@@ -149,10 +149,44 @@ begin
   Result := not WebView2Present;
 end;
 
+function DesinstaladorAntigo(var Cmd: String): Boolean;
+var
+  K: String;
+begin
+  K := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#AppIdAntigo}';
+  Result := RegQueryStringValue(HKLM64, K, 'UninstallString', Cmd) or
+            RegQueryStringValue(HKLM32, K, 'UninstallString', Cmd) or
+            RegQueryStringValue(HKCU, K, 'UninstallString', Cmd);
+  Cmd := RemoveQuotes(Cmd);
+  Result := Result and FileExists(Cmd);
+end;
+
+procedure RemoverVersaoAntiga;
+var
+  Cmd: String;
+  Code, I: Integer;
+begin
+  if not DesinstaladorAntigo(Cmd) then
+    exit;
+  Log('Removendo a versão antiga (Inventário de Rede): ' + Cmd);
+  { modo silencioso: a versão antiga não pergunta nada e mantém os dados do usuário }
+  { ShellExec (e não Exec): se a versão antiga foi instalada para todos, o desinstalador dela pede administrador }
+  ShellExec('', Cmd, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  { o desinstalador do Inno se copia para a pasta temporária e continua: espera ele terminar }
+  for I := 1 to 60 do
+  begin
+    if not DesinstaladorAntigo(Cmd) then
+      break;
+    Sleep(500);
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Code: Integer;
 begin
+  if CurStep = ssInstall then
+    RemoverVersaoAntiga;
   if (CurStep = ssPostInstall) and NeedsWebView2 then
   begin
     WizardForm.StatusLabel.Caption := CustomMessage('InstallingWebView');
@@ -179,7 +213,7 @@ var
 begin
   if CurUninstallStep = usPostUninstall then
   begin
-    Pasta := ExpandConstant('{localappdata}\InventarioRede');
+    Pasta := ExpandConstant('{localappdata}\ScannerDeRede');
     if DirExists(Pasta) and not UninstallSilent then
       if MsgBox(FmtMessage(CustomMessage('AskDeleteData'), [Pasta]), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
         DelTree(Pasta, True, True, True);
